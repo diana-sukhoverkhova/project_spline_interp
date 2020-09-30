@@ -20,6 +20,13 @@ class cyclic_interp_curve:
         self.der = np.append(self.der, np.array(der[0]))
 
 
+    def __call__(self, xnew):
+        '''
+        returns the value of the spline at 'xnew'
+        '''
+        return self.hermit_cubic_spline(xnew)
+
+
     def draw(self):
         plt.scatter(self.x, self.y, marker='o')
         vhcs = np.vectorize(self.hermit_cubic_spline)
@@ -29,6 +36,7 @@ class cyclic_interp_curve:
         for i in tmp:
             plt.plot(i, vhcs(i))
         plt.show()
+
 
     def hermit_cubic_spline(self, t): 
         i = np.argmax(self.x > t) - 1
@@ -45,6 +53,7 @@ class cyclic_interp_curve:
         p2 = (t - xa) / h * (xb - t) / h
         p3 = (m - sb) * (t - xa) + (sa - m) * (xb - t)
         return p1 + p2 * p3
+
 
 def cubic_spline_interpolation_first_derivatives(x,y):
     '''
