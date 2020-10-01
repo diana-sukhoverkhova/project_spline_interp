@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+
 class cyclic_interp_curve:
     '''
     Class for cyclic curve
@@ -19,13 +20,11 @@ class cyclic_interp_curve:
         self.der = np.copy(der)  # vector of derivatives
         self.der = np.append(self.der, np.array(der[0]))
 
-
     def __call__(self, xnew):
         '''
         returns the value of the spline at 'xnew'
         '''
         return self.hermit_cubic_spline(xnew)
-
 
     def draw(self):
         plt.scatter(self.x, self.y, marker='o')
@@ -37,8 +36,7 @@ class cyclic_interp_curve:
             plt.plot(i, vhcs(i))
         plt.show()
 
-
-    def hermit_cubic_spline(self, t): 
+    def hermit_cubic_spline(self, t):
         i = np.argmax(self.x > t) - 1
 
         xa = self.x[i]
@@ -55,36 +53,48 @@ class cyclic_interp_curve:
         return p1 + p2 * p3
 
 
-def cubic_spline_interpolation_first_derivatives(x,y):
+def cubic_spline_interpolation_first_derivatives(x, y):
     '''
     Function for making periodic spline interpolation based on dots (x,y)
-    arguments:
+    Parameters
+    ----------
     x,y - coordinates of given function
     returns:
     array of first derivatives in given dots (enough to build interp function)
     '''
+    if not np.allclose(x, np.sort(x)):
+        raise ValueError("x should be a sorted array", x)
+    if x.shape[0] < 2:
+        raise ValueError(f"{x.shape[0]} dots are not enough to interpolate", x.shape[0])
+    if not np.allclose(y[0], y[-1]):
+        raise ValueError("Function does not match at first and last dots (periodic condition)", y[0], y[-1])
+    if x.shape != y.shape:
+        raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
-    s = np.zeros(n+1)
-    r = np.zeros(n+1)
+    s = np.zeros(n + 1)
+    r = np.zeros(n + 1)
     a = np.zeros(n)
-    b = np.zeros(n+1)
+    b = np.zeros(n + 1)
     c = np.zeros(n)
-    d = np.zeros(n+1)  # vector of constant terms
+    d = np.zeros(n + 1)  # vector of constant terms
     for i in range(n + 1):
-        s[i] = 1 / (x[i+1]-x[i])
-        r[i] = (y[i+1]-y[i])/(x[i+1]-x[i])
-    for i in range(1,n):
-        a[i-1] = s[i-1]
-        b[i] = 2*(s[i-1] + s[i])
+        if np.allclose(x[i + 1], x[i]):
+            raise ZeroDivisionError("Division by zero", x[i], x[i + 1])
+        s[i] = 1 / (x[i + 1] - x[i])
+        r[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i])
+    for i in range(1, n):
+        a[i - 1] = s[i - 1]
+        b[i] = 2 * (s[i - 1] + s[i])
         c[i] = s[i]
-        d[i] = 3*(s[i-1]*r[i-1] + s[i]*r[i])
-    d[0] = s[n]*r[n] + s[0]*r[0]
-    d[n] = s[n-1]*r[n-1] + s[n]*r[n]
-    b[0] = 2*(s[n] + s[0])
+        d[i] = 3 * (s[i - 1] * r[i - 1] + s[i] * r[i])
+    d[0] = s[n] * r[n] + s[0] * r[0]
+    d[n] = s[n - 1] * r[n - 1] + s[n] * r[n]
+    b[0] = 2 * (s[n] + s[0])
     c[0] = s[0]
-    a[n-1] = s[n-1]
-    b[n] = 2*(s[n-1]+s[n])
-    return Sherman_Morison_algorithm(a,b,c,d,s[n],s[n])
+    a[n - 1] = s[n - 1]
+    b[n] = 2 * (s[n - 1] + s[n])
+    return Sherman_Morison_algorithm(a, b, c, d, s[n], s[n])
+
 
 def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
     '''
@@ -118,11 +128,11 @@ def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
         x[i] = w[i] - z[i] * (vw) / (1 + vz)
     return x
 
-def Thomas_algorithm(a,b,c,d):
 
+def Thomas_algorithm(a, b, c, d):
     '''
     Implementation of Thomas algorithm.
-  
+
     variables:
         a, b, c, d - lower tridiagonal, main, upper tridiagonal vectors of a matrix and free vector (dtype=float)
         ac, bc, cc, dc - copies of vectors a, b, c, d
