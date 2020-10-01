@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import math
 
 
@@ -12,10 +11,9 @@ class cyclic_interp_curve:
            a curve that makes up from interpolate functions
     '''
 
-    def __init__(self, x, y, der, step):
+    def __init__(self, x, y, der):
         self.x = x
         self.y = y
-        self.step = step
         self.n = len(x)
         self.der = np.copy(der)  # vector of derivatives
         self.der = np.append(self.der, np.array(der[0]))
@@ -24,17 +22,9 @@ class cyclic_interp_curve:
         '''
         returns the value of the spline at 'xnew'
         '''
+        if self.x[0] > xnew or self.x[-1] < xnew:
+            raise ValueError(f'xnew not in ({x[0]},{x[-1]})', xnew)
         return self.hermit_cubic_spline(xnew)
-
-    def draw(self):
-        plt.scatter(self.x, self.y, marker='o')
-        vhcs = np.vectorize(self.hermit_cubic_spline)
-        tmp = list()
-        for i in range(0, self.n - 1):
-            tmp.append(np.arange(self.x[i], self.x[i + 1] + self.step, self.step))
-        for i in tmp:
-            plt.plot(i, vhcs(i))
-        plt.show()
 
     def hermit_cubic_spline(self, t):
         i = np.argmax(self.x > t) - 1
