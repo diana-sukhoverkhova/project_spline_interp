@@ -1,6 +1,8 @@
 import numpy as np
 import math
 
+accuracy = 1e-14
+
 
 class cyclic_interp_curve:
     '''
@@ -16,7 +18,6 @@ class cyclic_interp_curve:
         self.y = y
         self.n = len(x)
         self.der = np.copy(der)  # vector of derivatives
-        self.der = np.append(self.der, np.array(der[0]))
 
     def __call__(self, xnew):
         '''
@@ -44,19 +45,39 @@ class cyclic_interp_curve:
 
 
 def cubic_spline_interpolation_first_derivatives(x, y):
-    '''
-    Function for making periodic spline interpolation based on dots (x,y)
+    """
+    Return 1-D array of first derivatives.
+
+    Given two 1-D arrays 'x' and 'y', returns first derivatives in
+    points ''(x, y)''
+
     Parameters
     ----------
-    x,y - coordinates of given function
-    returns:
-    array of first derivatives in given dots (enough to build interp function)
-    '''
-    if not np.allclose(x, np.sort(x)):
+    x : numpy.array
+        `x` represents the x-coordinates of a set of datapoints.
+    y : numpy.array
+        `y` represents the y-coordinates of a set of datapoints, i.e., f(`x`).
+
+    Returns
+    -------
+    numpy.array
+        First derivatives in points ''(x, y)''
+
+    Notes
+    -----
+    Array 'x' should be sorted.
+
+    First and last y-coordinates should be equal to reach the periodic
+    condition.
+
+    Number of point should be greater than 2 because minimally 3 points
+    can form the interpolate function.
+    """
+    if not np.allclose(x, np.sort(x), atol=accuracy):
         raise ValueError("x should be a sorted array", x)
     if x.shape[0] < 2:
         raise ValueError(f"{x.shape[0]} dots are not enough to interpolate", x.shape[0])
-    if not np.allclose(y[0], y[-1]):
+    if not np.allclose(y[0], y[-1], atol=accuracy):
         raise ValueError("Function does not match at first and last dots (periodic condition)", y[0], y[-1])
     if x.shape != y.shape:
         raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
@@ -68,7 +89,7 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     c = np.zeros(n)
     d = np.zeros(n + 1)  # vector of constant terms
     for i in range(n + 1):
-        if np.allclose(x[i + 1], x[i]):
+        if np.allclose(x[i + 1], x[i], atol=accuracy):
             raise ZeroDivisionError("Division by zero", x[i], x[i + 1])
         s[i] = 1 / (x[i + 1] - x[i])
         r[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i])
@@ -83,7 +104,8 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     c[0] = s[0]
     a[n - 1] = s[n - 1]
     b[n] = 2 * (s[n - 1] + s[n])
-    return Sherman_Morison_algorithm(a, b, c, d, s[n], s[n])
+    return np.append(
+        _ := Sherman_Morison_algorithm(a, b, c, d, s[n], s[n]), _[0])
 
 
 def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
@@ -96,6 +118,11 @@ def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
     returns:
     solution of linear system with tridiagonal matrix with corner coefficients alpha and beta
     '''
+    if bb.shape[0] < 1:
+        raise ValueError("Matrix size is not enough to interpolate")
+    if aa.shape != cc.shape or aa.shape[0] + 1 != bb.shape[0]:
+        raise ValueError(f"Vectors a({aa.shape[0]}), b({bb.shape[0]}), c({cc.shape[0]}) have incompatible sizes",
+                         aa.shape, bb.shape, cc.shape)
     a = np.copy(aa)
     b = np.copy(bb)
     c = np.copy(cc)
@@ -112,10 +139,14 @@ def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
     w = Thomas_algorithm(a, b, c, r)
     z = Thomas_algorithm(a, b, c, u)
     x = np.zeros(n)
+    if w.shape != v.shape or z.shape != v.shape:
+        raise ValueError("Wrong output from Thomas algorithm")
     vw = v.dot(w)
     vz = v.dot(z)
+    if np.allclose(vz, -1, atol=accuracy):
+        raise ZeroDivisionError("Division by zero")
     for i in range(n):
-        x[i] = w[i] - z[i] * (vw) / (1 + vz)
+        x[i] = w[i] - z[i] * vw / (1 + vz)
     return x
 
 
