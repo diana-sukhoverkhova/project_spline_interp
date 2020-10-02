@@ -143,11 +143,11 @@ def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
     The minimum size of matrix of SLE is 3 because
     tridiagonal matrix can not be defined otherwise.
     """
-    if bb.shape[0] < 1:
+    if b.shape[0] < 1:
         raise ValueError("Matrix size is not enough to interpolate")
-    if aa.shape != cc.shape or aa.shape[0] + 1 != bb.shape[0]:
-        raise ValueError(f"Vectors a({aa.shape[0]}), b({bb.shape[0]}), c({cc.shape[0]}) have incompatible sizes",
-                         aa.shape, bb.shape, cc.shape)
+    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0]:
+        raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}) have incompatible sizes",
+                         a.shape, b.shape, c.shape)
     ac = np.copy(a)
     bc = np.copy(b)
     cc = np.copy(c)
