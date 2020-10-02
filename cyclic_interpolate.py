@@ -49,14 +49,14 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     Return 1-D array of first derivatives.
 
     Given two 1-D arrays 'x' and 'y', returns first derivatives in
-    points ''(x, y)''
+    points ''(x, y)''.
 
     Parameters
     ----------
     x : numpy.array
-        `x` represents the x-coordinates of a set of datapoints.
+        Represents the x-coordinates of a set of datapoints.
     y : numpy.array
-        `y` represents the y-coordinates of a set of datapoints, i.e., f(`x`).
+        Represents the y-coordinates of a set of datapoints, i.e., f(`x`).
 
     Returns
     -------
@@ -76,14 +76,15 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     if not np.allclose(x, np.sort(x), atol=accuracy):
         raise ValueError("x should be a sorted array", x)
     if x.shape[0] < 2:
-        raise ValueError(f"{x.shape[0]} dots are not enough to interpolate", x.shape[0])
+        raise ValueError(f"{x.shape[0]} points are not enough to interpolate", x.shape[0])
     if not np.allclose(y[0], y[-1], atol=accuracy):
-        raise ValueError("Function does not match at first and last dots (periodic condition)", y[0], y[-1])
+        raise ValueError("Function does not match at first and last points (periodic condition)", y[0], y[-1])
     if x.shape != y.shape:
         raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
     s = np.zeros(n + 1)
     r = np.zeros(n + 1)
+    # a, b, c - 3 arrays that form a tridiagonal matrix
     a = np.zeros(n)
     b = np.zeros(n + 1)
     c = np.zeros(n)
@@ -104,28 +105,52 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     c[0] = s[0]
     a[n - 1] = s[n - 1]
     b[n] = 2 * (s[n - 1] + s[n])
-    return np.append(
-        _ := Sherman_Morison_algorithm(a, b, c, d, s[n], s[n]), _[0])
+    # as well as first derivatives are equal we add the first element of solution to the end
+    result = Sherman_Morrison_algorithm(a, b, c, d, s[n], s[n])
+    return np.append(result, result[0])
 
 
-def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
-    '''
-    variables:
-    a,b,c - vectors of coefficients of tridiagonal matrix
-    r - vector of constant terms
-    alpha - element of matrix (1, n)
-    beta- element of matrix (n, 1)
-    returns:
-    solution of linear system with tridiagonal matrix with corner coefficients alpha and beta
-    '''
+def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
+    """
+    Implementation of Sherman-Morrison's algorithm.
+
+    Returns solution to the system of linear equations with almost
+    tridiagonal matrix.
+    Parameters
+    ----------
+    a : np.array
+        lower diagonal elements of tridiagonal matrix of the SLE.
+    b : np.array
+        diagonal elements of tridiagonal matrix of the SLE.
+    c : np.array
+        upper diagonal elements of tridiagonal matrix of the SLE.
+    r : np.array
+        array of constant terms of the SLE.
+    alpha : float
+        The right corner element of matrix of the SLE.
+    beta : float
+        The left corner element of matrix of the SLE.
+
+    Returns
+    -------
+    x : np.array
+        Solution of the SLE.
+
+    Notes
+    -----
+    SLE - system of linear equations.
+
+    The minimum size of matrix of SLE is 3 because
+    tridiagonal matrix can not be defined otherwise.
+    """
     if bb.shape[0] < 1:
         raise ValueError("Matrix size is not enough to interpolate")
     if aa.shape != cc.shape or aa.shape[0] + 1 != bb.shape[0]:
         raise ValueError(f"Vectors a({aa.shape[0]}), b({bb.shape[0]}), c({cc.shape[0]}) have incompatible sizes",
                          aa.shape, bb.shape, cc.shape)
-    a = np.copy(aa)
-    b = np.copy(bb)
-    c = np.copy(cc)
+    ac = np.copy(a)
+    bc = np.copy(b)
+    cc = np.copy(c)
     n = b.shape[0]  # size
     u = np.zeros(n)
     v = np.zeros(n)
@@ -133,11 +158,11 @@ def Sherman_Morison_algorithm(aa, bb, cc, r, alpha, beta):
     u[-1] = beta
     v[0] = 1
     v[-1] = 1
-    b[0] -= alpha
-    b[-1] -= beta
+    bc[0] -= alpha
+    bc[-1] -= beta
 
-    w = Thomas_algorithm(a, b, c, r)
-    z = Thomas_algorithm(a, b, c, u)
+    w = Thomas_algorithm(ac, bc, cc, r)
+    z = Thomas_algorithm(ac, bc, cc, u)
     x = np.zeros(n)
     if w.shape != v.shape or z.shape != v.shape:
         raise ValueError("Wrong output from Thomas algorithm")
