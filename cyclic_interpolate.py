@@ -96,6 +96,8 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     Number of point should be greater than 2 because minimally 3 points
     can form the interpolate function.
     """
+    if x is None or y is None:
+        raise Exception("Some of arguments are None")
     if not np.allclose(x, np.sort(x), atol=accuracy):
         raise ValueError("x should be a sorted array", x)
     if x.shape[0] < 2:
@@ -167,14 +169,14 @@ def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
     The minimum size of matrix of SLE is 3 because
     tridiagonal matrix can not be defined otherwise.
     """
+    if a is None or b is None or c is None or r is None:
+        raise Exception("Some of arguments are None")
     if b.shape[0] <= 2:
         raise ValueError("Matrix size is not enough to interpolate")
     if a.shape != c.shape or a.shape[0] + 1 != b.shape[0]:
         raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}) have incompatible sizes",
                          a.shape, b.shape, c.shape)
-    ac = np.copy(a)
-    bc = np.copy(b)
-    cc = np.copy(c)
+    ac, bc, cc = np.copy(a), np.copy(b), np.copy(c)
     n = b.shape[0]  # size
     u = np.zeros(n)
     v = np.zeros(n)
