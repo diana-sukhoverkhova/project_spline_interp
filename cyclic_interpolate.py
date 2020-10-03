@@ -31,6 +31,8 @@ class CyclicInterpCurve:
 
     """
     def __init__(self, x, y, der):
+        if x is None or y is None or der is None:
+            raise Exception("Cannot initialize an instance because some parameters is None")
         self.x = x
         self.y = y
         self.n = len(x)
