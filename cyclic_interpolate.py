@@ -3,6 +3,12 @@ import numpy as np
 accuracy = 1e-14
 
 
+def make_spline(x, y):
+    # A convenience wrapper for the ctor.
+    # FIXME: this should likely be the API
+    der = cubic_spline_interpolation_first_derivatives(x, y)
+    return CyclicInterpCurve(x, y, der)
+
 class CyclicInterpCurve:
     """
     Cubic interpolating function in Hermite form with periodic
@@ -10,14 +16,14 @@ class CyclicInterpCurve:
 
     Parameters
     ----------
-        x : 1-D array, shape (k,)
-            Values of x - coordinate of a given set of points.
-        y : 1-D array, shape (k,)
-            Values of y - coordinate of a given set of points.
-        der : 1-D array, shape (k,)
-            First derivatives, found from condition of equality
-            neighboring derivatives and from a given set of points (x, y)
-            for building up cubic polynomial in Hermite form.
+     x : 1-D array, shape (k,)
+        Values of x - coordinate of a given set of points.
+    y : 1-D array, shape (k,)
+        Values of y - coordinate of a given set of points.
+    der : 1-D array, shape (k,)
+        First derivatives, found from condition of equality
+        neighboring derivatives and from a given set of points (x, y)
+        for building up cubic polynomial in Hermite form.
 
     Attributes
     ----------
@@ -32,7 +38,7 @@ class CyclicInterpCurve:
     """
     def __init__(self, x, y, der):
         if x is None or y is None or der is None:
-            raise Exception("Cannot initialize an instance because some parameters is None")
+            raise ValueError("Cannot initialize an instance because some parameters is None")
         self.x = x
         self.y = y
         self.n = len(x)
@@ -43,7 +49,7 @@ class CyclicInterpCurve:
         returns the value of the spline at 'xnew'
         """
         if self.x[0] > xnew or self.x[-1] < xnew:
-            raise ValueError(f'xnew not in ({x[0]},{x[-1]})', xnew)
+            raise ValueError(f'xnew not in ({self.x[0]},{self.x[-1]})', xnew)
         return self.hermit_cubic_spline(xnew)
 
     def hermit_cubic_spline(self, t):
@@ -95,11 +101,11 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     First and last y-coordinates should be equal to reach the periodic
     condition.
 
-    Number of point should be greater than 2 because minimally 3 points
+    Number of point should be larger than 2 because minimally 3 points
     can form the interpolate function.
     """
     if x is None or y is None:
-        raise Exception("Some of arguments are None")
+        raise ValueError("Some of arguments are None")
     if not np.allclose(x, np.sort(x), atol=accuracy):
         raise ValueError("x should be a sorted array", x)
     if x.shape[0] < 2:
@@ -133,11 +139,11 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     a[n - 1] = s[n - 1]
     b[n] = 2 * (s[n - 1] + s[n])
     # as well as first derivatives are equal we add the first element of solution to the end
-    result = Sherman_Morrison_algorithm(a, b, c, d, s[n], s[n])
+    result = sherman_morrison_algorithm(a, b, c, d, s[n], s[n])
     return np.append(result, result[0])
 
 
-def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
+def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
     """
     Implementation of Sherman-Morrison's algorithm.
 
@@ -189,8 +195,8 @@ def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
     bc[0] -= alpha
     bc[-1] -= beta
 
-    w = Thomas_algorithm(ac, bc, cc, r)
-    z = Thomas_algorithm(ac, bc, cc, u)
+    w = thomas_algorithm(ac, bc, cc, r)
+    z = thomas_algorithm(ac, bc, cc, u)
     x = np.zeros(n)
     if w.shape != v.shape or z.shape != v.shape:
         raise ValueError("Wrong output from Thomas algorithm")
@@ -203,7 +209,7 @@ def Sherman_Morrison_algorithm(a, b, c, r, alpha, beta):
     return x
 
 
-def Thomas_algorithm(a, b, c, d):
+def thomas_algorithm(a, b, c, d):
     """
     Implementation of Thomas algorithm.
 
