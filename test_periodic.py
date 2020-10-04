@@ -3,7 +3,7 @@ from numpy.testing import assert_allclose
 
 import pytest
 
-from cyclic_interpolate import (cyclic_interp_curve,
+from cyclic_interpolate import (CyclicInterpCurve,
         cubic_spline_interpolation_first_derivatives)
 
 
@@ -11,7 +11,7 @@ def make_spline(x, y):
     # A convenience wrapper for the ctor.
     # FIXME: this should likely be the API
     der = cubic_spline_interpolation_first_derivatives(x, y)
-    return cyclic_interp_curve(x, y, der)
+    return CyclicInterpCurve(x, y, der)
 
 
 def test_non_periodic():
@@ -20,8 +20,7 @@ def test_non_periodic():
     
     with pytest.raises(ValueError):
         make_spline(x, y)     # first and last points differ
-    
-    
+
 
 def test_random(): 
     rndm = np.random.RandomState(1234)

@@ -5,7 +5,6 @@ accuracy = 1e-14
 
 def make_spline(x, y):
     # A convenience wrapper for the ctor.
-    # FIXME: this should likely be the API
     der = cubic_spline_interpolation_first_derivatives(x, y)
     return CyclicInterpCurve(x, y, der)
 
@@ -39,6 +38,8 @@ class CyclicInterpCurve:
     def __init__(self, x, y, der):
         if x is None or y is None or der is None:
             raise ValueError("Cannot initialize an instance because some parameters is None")
+        if not all(u < v for u, v in zip(x, x[1:])):
+            raise ValueError("x should strictly increase")
         self.x = x
         self.y = y
         self.n = len(x)
@@ -58,7 +59,6 @@ class CyclicInterpCurve:
         and returns value of this spline in t.
         """
         i = np.argmax(self.x > t) - 1
-
         xa = self.x[i]
         xb = self.x[i + 1]
         ya = self.y[i]
@@ -108,12 +108,14 @@ def cubic_spline_interpolation_first_derivatives(x, y):
         raise ValueError("Some of arguments are None")
     if not np.allclose(x, np.sort(x), atol=accuracy):
         raise ValueError("x should be a sorted array", x)
-    if x.shape[0] < 2:
+    if x.shape[0] <= 2:
         raise ValueError(f"{x.shape[0]} points are not enough to interpolate", x.shape[0])
     if not np.allclose(y[0], y[-1], atol=accuracy):
         raise ValueError("Function does not match at first and last points (periodic condition)", y[0], y[-1])
     if x.shape != y.shape:
         raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
+    if not all(u<v for u, v in zip(x, x[1:])):
+        raise ValueError("x should strictly increase")
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
     s = np.zeros(n + 1)
     r = np.zeros(n + 1)
