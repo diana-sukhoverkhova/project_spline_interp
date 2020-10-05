@@ -5,7 +5,7 @@ accuracy = 1e-14
 
 def make_spline(x, y):
     # A convenience wrapper for the ctor.
-    der = cubic_spline_interpolation_first_derivatives(x, y)
+    der = get_first_derivatives(x, y)
     return CyclicInterpCurve(x, y, der)
 
 
@@ -76,7 +76,7 @@ class CyclicInterpCurve:
         return p1 + p2 * p3
 
 
-def cubic_spline_interpolation_first_derivatives(x, y):
+def get_first_derivatives(x, y):
     """
     Return 1-D array of first derivatives.
 
