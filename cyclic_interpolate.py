@@ -8,6 +8,7 @@ def make_spline(x, y):
     der = cubic_spline_interpolation_first_derivatives(x, y)
     return CyclicInterpCurve(x, y, der)
 
+
 class CyclicInterpCurve:
     """
     Cubic interpolating function in Hermite form with periodic
@@ -106,16 +107,14 @@ def cubic_spline_interpolation_first_derivatives(x, y):
     """
     if x is None or y is None:
         raise ValueError("Some of arguments are None")
-    if not np.allclose(x, np.sort(x), atol=accuracy):
-        raise ValueError("x should be a sorted array", x)
+    if not all(u < v for u, v in zip(x, x[1:])):
+        raise ValueError("x should strictly increase")
     if x.shape[0] <= 2:
         raise ValueError(f"{x.shape[0]} points are not enough to interpolate", x.shape[0])
     if not np.allclose(y[0], y[-1], atol=accuracy):
         raise ValueError("Function does not match at first and last points (periodic condition)", y[0], y[-1])
     if x.shape != y.shape:
         raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
-    if not all(u<v for u, v in zip(x, x[1:])):
-        raise ValueError("x should strictly increase")
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
     s = np.zeros(n + 1)
     r = np.zeros(n + 1)
@@ -183,9 +182,10 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
         raise Exception("Some of arguments are None")
     if b.shape[0] <= 2:
         raise ValueError("Matrix size is not enough to interpolate")
-    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0]:
-        raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}) have incompatible sizes",
-                         a.shape, b.shape, c.shape)
+    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != d.shape:
+        raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}),"
+                         f"d({d.shape[0]}) have incompatible sizes",
+                         a.shape, b.shape, c.shape, d.shape)
     ac, bc, cc = np.copy(a), np.copy(b), np.copy(c)
     n = b.shape[0]  # size
     u = np.zeros(n)
@@ -242,9 +242,10 @@ def thomas_algorithm(a, b, c, d):
     ac, bc, cc, dc = np.copy(a), np.copy(b), np.copy(c), np.copy(d)
     if ac is None or bc is None or cc is None or dc is None:
         raise Exception("Error of copying")
-    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0]:
-        raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}) have incompatible sizes",
-                         a.shape, b.shape, c.shape)
+    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != d.shape:
+        raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}),"
+                         f"d({d.shape[0]}) have incompatible sizes",
+                         a.shape, b.shape, c.shape, d.shape)
     n = b.shape[0]
     if n <= 2:
         raise ValueError("Matrix size is not enough to solve linear system")
