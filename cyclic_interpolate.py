@@ -182,10 +182,10 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
         raise Exception("Some of arguments are None")
     if b.shape[0] <= 2:
         raise ValueError("Matrix size is not enough to interpolate")
-    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != d.shape:
+    if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != r.shape:
         raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}),"
-                         f"d({d.shape[0]}) have incompatible sizes",
-                         a.shape, b.shape, c.shape, d.shape)
+                         f"d({r.shape[0]}) have incompatible sizes",
+                         a.shape, b.shape, c.shape, r.shape)
     ac, bc, cc = np.copy(a), np.copy(b), np.copy(c)
     n = b.shape[0]  # size
     u = np.zeros(n)

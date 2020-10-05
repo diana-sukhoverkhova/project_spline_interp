@@ -43,7 +43,7 @@ def test_none():
     with pytest.raises(Exception):
         thomas_algorithm(a, b, c, d)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         sherman_morrison_algorithm(a, b, c, d, 1, 0)
 
     a = np.arange(5)
@@ -54,7 +54,7 @@ def test_none():
     with pytest.raises(Exception):
         thomas_algorithm(a, b, c, d)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         sherman_morrison_algorithm(a, b, c, d, 1, 0)
 
     a = np.arange(5)
@@ -65,7 +65,7 @@ def test_none():
     with pytest.raises(Exception):
         thomas_algorithm(a, b, c, d)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         sherman_morrison_algorithm(a, b, c, d, 1, 0)
 
     a = np.arange(5)
@@ -76,7 +76,7 @@ def test_none():
     with pytest.raises(Exception):
         thomas_algorithm(a, b, c, d)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(Exception):
         sherman_morrison_algorithm(a, b, c, d, 1, 0)
 
 

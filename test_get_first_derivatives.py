@@ -76,5 +76,5 @@ def test_matrix():
     y = np.random.uniform(size=8)
     y[-1] = y[0]
 
-    der = cubic_spline_interpolation_first_derivatives(x, y)
+    der = get_first_derivatives(x, y)
     assert_allclose(der.shape[0], x.shape[0], atol=1e-12)
