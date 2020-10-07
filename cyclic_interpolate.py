@@ -16,7 +16,7 @@ class CyclicInterpCurve:
 
     Parameters
     ----------
-     x : 1-D array, shape (k,)
+    x : 1-D array, shape (k,)
         Values of x - coordinate of a given set of points.
     y : 1-D array, shape (k,)
         Values of y - coordinate of a given set of points.
@@ -33,8 +33,7 @@ class CyclicInterpCurve:
     Methods
     -------
     __call__
-    hermit_cubic_spline
-
+    hermite_cubic_spline
     """
     def __init__(self, x, y, der):
         if x is None or y is None or der is None:
@@ -52,9 +51,9 @@ class CyclicInterpCurve:
         """
         if self.x[0] > xnew or self.x[-1] < xnew:
             raise ValueError(f'xnew not in ({self.x[0]},{self.x[-1]})', xnew)
-        return self.hermit_cubic_spline(xnew)
+        return self.hermite_cubic_spline(xnew)
 
-    def hermit_cubic_spline(self, t):
+    def hermite_cubic_spline(self, t):
         """
         Build up spline function - cubic polynomial in Hermite form
         and returns value of this spline in t.
@@ -180,7 +179,7 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
     """
     if a is None or b is None or c is None or r is None:
         raise Exception("Some of arguments are None")
-    if b.shape[0] <= 2:
+    if b.shape[0] < 2:
         raise ValueError("Matrix size is not enough to interpolate")
     if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != r.shape:
         raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}),"
@@ -237,7 +236,6 @@ def thomas_algorithm(a, b, c, d):
     length of vector b is m as a main diagonal,
     lengths of vectors a and c is m - 1,
     and length of vector d is n.
-
     """
     ac, bc, cc, dc = np.copy(a), np.copy(b), np.copy(c), np.copy(d)
     if ac is None or bc is None or cc is None or dc is None:
@@ -247,7 +245,7 @@ def thomas_algorithm(a, b, c, d):
                          f"d({d.shape[0]}) have incompatible sizes",
                          a.shape, b.shape, c.shape, d.shape)
     n = b.shape[0]
-    if n <= 2:
+    if n < 2:
         raise ValueError("Matrix size is not enough to solve linear system")
 
     # stage 1
