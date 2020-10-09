@@ -6,15 +6,37 @@ from cyclic_interpolate import (sherman_morrison_algorithm, thomas_algorithm)
 
 
 def matrix_splitter(a, b, c, alpha, beta):
+    """
+    Returns an almost tridiagonal matrix with corner elements
+    alpha and beta
+
+    Parameters
+    ----------
+    a : 1-D array, shape (n-1,)
+        Vector of elements ''x[i, i-1]'' of a tridiagonal matrix.
+    b : 1-D array, shape (n,)
+        Main diagonal of a tridiagonal matrix.
+    c : 1-D array, shape (n-1,)
+        Vector of elements ''x[i-1, i]'' of a tridiagonal matrix.
+    alpha : float
+        Corner element ''x[0, -1]''.
+    beta : float
+        Corner element ''x[-1, 0]''.
+
+    Returns
+    -------
+    matr : 2-D array, shape (n, n)
+        Tridiagonal matrix.
+    """
     size = b.shape[0]
     matr = np.zeros([size, size])
     for i in range(size):
-        matr[i][i] = b[i]
+        matr[i, i] = b[i]
     for i in range(size - 1):
-        matr[i][i + 1] = c[i]
-        matr[i + 1][i] = a[i]
-    matr[0][-1] = alpha
-    matr[-1][0] = beta
+        matr[i, i + 1] = c[i]
+        matr[i + 1, i] = a[i]
+    matr[0, -1] = alpha
+    matr[-1, 0] = beta
     return matr
 
 # thomas_algorithm

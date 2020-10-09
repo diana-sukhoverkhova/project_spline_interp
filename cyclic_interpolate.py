@@ -101,8 +101,11 @@ def get_first_derivatives(x, y):
     First and last y-coordinates should be equal to reach the periodic
     condition.
 
-    Number of point should be larger than 2 because minimally 3 points
+    Number of point should be larger than 3 because minimally 4 points
     can form the interpolate function.
+
+    The case of 3 points is performed with the same algorithm
+    made up manually
     """
     if x is None or y is None:
         raise ValueError("Some of arguments are None")
@@ -114,6 +117,11 @@ def get_first_derivatives(x, y):
         raise ValueError("Function does not match at first and last points (periodic condition)", y[0], y[-1])
     if x.shape != y.shape:
         raise ValueError(f"x and y have different sizes ({x.shape[0]} != {y.shape[0]})", x.shape[0], y.shape[0])
+    if x.shape[0] == 3:
+        h = x[1:] - x[:-1]
+        m = (y[1:] - y[:-1]) / h
+        s = (m / h).sum() / (1. / h).sum()
+        return [s, s, s]
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
     s = np.zeros(n + 1)
     r = np.zeros(n + 1)
@@ -179,7 +187,7 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
     """
     if a is None or b is None or c is None or r is None:
         raise Exception("Some of arguments are None")
-    if b.shape[0] < 2:
+    if b.shape[0] <= 2:
         raise ValueError("Matrix size is not enough to interpolate")
     if a.shape != c.shape or a.shape[0] + 1 != b.shape[0] or b.shape != r.shape:
         raise ValueError(f"Vectors a({a.shape[0]}), b({b.shape[0]}), c({c.shape[0]}),"
