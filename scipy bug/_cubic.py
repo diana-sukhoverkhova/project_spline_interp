@@ -694,53 +694,68 @@ class CubicSpline(CubicHermiteSpline):
             bc_start, bc_end = bc
 
             if bc_start == 'periodic':
-                # Due to the periodicity, and because y[-1] = y[0], the linear
-                # system has (n-1) unknowns/equations instead of n:
-                A = A[:, 0:-1]
-                A[1, 0] = 2 * (dx[-1] + dx[0])
-                A[0, 1] = dx[-1]
+                # In case when number of points is 3 we should count derivatives
+                # manually
+                if n == 3:
+                    assert len(x) == len(y) == 3
+                    y[-1] = y[0]  # shortcut
 
-                b = b[:-1]
+                    x, y = map(np.asarray, (x, y))
 
-                # Also, due to the periodicity, the system is not tri-diagonal.
-                # We need to compute a "condensed" matrix of shape (n-2, n-2).
-                # See https://web.archive.org/web/20151220180652/http://www.cfm.brown.edu/people/gk/chap6/node14.html
-                # for more explanations.
-                # The condensed matrix is obtained by removing the last column
-                # and last row of the (n-1, n-1) system matrix. The removed
-                # values are saved in scalar variables with the (n-1, n-1)
-                # system matrix indices forming their names:
-                a_m1_0 = dx[-2]  # lower left corner value: A[-1, 0]
-                a_m1_m2 = dx[-1]
-                a_m1_m1 = 2 * (dx[-1] + dx[-2])
-                a_m2_m1 = dx[-2]
-                a_0_m1 = dx[0]
+                    h = x[1:] - x[:-1]
+                    m = (y[1:] - y[:-1]) / h
 
-                b[0] = 3 * (dxr[0] * slope[-1] + dxr[-1] * slope[0])
-                b[-1] = 3 * (dxr[-1] * slope[-2] + dxr[-2] * slope[-1])
+                    t = (m / h).sum() / (1. / h).sum()
+                    s = [t, t, t]
+                else:
+                    # Due to the periodicity, and because y[-1] = y[0], the linear
+                    # system has (n-1) unknowns/equations instead of n:
 
-                Ac = A[:, :-1]
-                b1 = b[:-1]
-                b2 = np.zeros_like(b1)
-                b2[0] = -a_0_m1
-                b2[-1] = -a_m2_m1
+                    A = A[:, 0:-1]
+                    A[1, 0] = 2 * (dx[-1] + dx[0])
+                    A[0, 1] = dx[-1]
 
-                # s1 and s2 are the solutions of (n-2, n-2) system
-                s1 = solve_banded((1, 1), Ac, b1, overwrite_ab=False,
-                                  overwrite_b=False, check_finite=False)
+                    b = b[:-1]
 
-                s2 = solve_banded((1, 1), Ac, b2, overwrite_ab=False,
-                                  overwrite_b=False, check_finite=False)
+                    # Also, due to the periodicity, the system is not tri-diagonal.
+                    # We need to compute a "condensed" matrix of shape (n-2, n-2).
+                    # See https://web.archive.org/web/20151220180652/http://www.cfm.brown.edu/people/gk/chap6/node14.html
+                    # for more explanations.
+                    # The condensed matrix is obtained by removing the last column
+                    # and last row of the (n-1, n-1) system matrix. The removed
+                    # values are saved in scalar variables with the (n-1, n-1)
+                    # system matrix indices forming their names:
+                    a_m1_0 = dx[-2]  # lower left corner value: A[-1, 0]
+                    a_m1_m2 = dx[-1]
+                    a_m1_m1 = 2 * (dx[-1] + dx[-2])
+                    a_m2_m1 = dx[-2]
+                    a_0_m1 = dx[0]
 
-                # computing the s[n-2] solution:
-                s_m1 = ((b[-1] - a_m1_0 * s1[0] - a_m1_m2 * s1[-1]) /
-                        (a_m1_m1 + a_m1_0 * s2[0] + a_m1_m2 * s2[-1]))
+                    b[0] = 3 * (dxr[0] * slope[-1] + dxr[-1] * slope[0])
+                    b[-1] = 3 * (dxr[-1] * slope[-2] + dxr[-2] * slope[-1])
 
-                # s is the solution of the (n, n) system:
-                s = np.empty((n,) + y.shape[1:], dtype=y.dtype)
-                s[:-2] = s1 + s_m1 * s2
-                s[-2] = s_m1
-                s[-1] = s[0]
+                    Ac = A[:, :-1]
+                    b1 = b[:-1]
+                    b2 = np.zeros_like(b1)
+                    b2[0] = -a_0_m1
+                    b2[-1] = -a_m2_m1
+
+                    # s1 and s2 are the solutions of (n-2, n-2) system
+                    s1 = solve_banded((1, 1), Ac, b1, overwrite_ab=False,
+                                      overwrite_b=False, check_finite=False)
+
+                    s2 = solve_banded((1, 1), Ac, b2, overwrite_ab=False,
+                                      overwrite_b=False, check_finite=False)
+
+                    # computing the s[n-2] solution:
+                    s_m1 = ((b[-1] - a_m1_0 * s1[0] - a_m1_m2 * s1[-1]) /
+                            (a_m1_m1 + a_m1_0 * s2[0] + a_m1_m2 * s2[-1]))
+
+                    # s is the solution of the (n, n) system:
+                    s = np.empty((n,) + y.shape[1:], dtype=y.dtype)
+                    s[:-2] = s1 + s_m1 * s2
+                    s[-2] = s_m1
+                    s[-1] = s[0]
             else:
                 if bc_start == 'not-a-knot':
                     A[1, 0] = dx[1]
