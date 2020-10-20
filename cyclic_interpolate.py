@@ -34,7 +34,9 @@ class CyclicInterpCurve:
     -------
     __call__
     hermite_cubic_spline
+    second_derivatives
     """
+
     def __init__(self, x, y, der):
         if x is None or y is None or der is None:
             raise ValueError("Cannot initialize an instance because some parameters is None")
@@ -49,8 +51,13 @@ class CyclicInterpCurve:
         """
         returns the value of the spline at 'xnew'
         """
-        if self.x[0] > xnew or self.x[-1] < xnew:
-            raise ValueError(f'xnew not in ({self.x[0]},{self.x[-1]})', xnew)
+        period = self.x[-1] - self.x[0]
+        if xnew < self.x[0]:
+            n = int((self.x[0] - xnew) / period) + 1
+            xnew += n * period
+        elif xnew > self.x[-1]:
+            n = int((xnew - self.x[-1]) / period) + 1
+            xnew -= n * period
         return self.hermite_cubic_spline(xnew)
 
     def hermite_cubic_spline(self, t):
@@ -74,13 +81,27 @@ class CyclicInterpCurve:
         p3 = (m - sb) * (t - xa) + (sa - m) * (xb - t)
         return p1 + p2 * p3
 
+    def second_derivatives(self):
+        s = self.der
+        n = self.n
+        h = np.zeros(n - 1)
+        m = np.zeros(n - 1)
+        p = np.zeros(n)
+        for i in range(self.n - 1):
+            h[i] = 1 / (self.x[i + 1] - self.x[i])
+            m[i] = (self.y[i + 1] - self.y[i]) / (self.x[i + 1] - self.x[i])
+        for i in range(self.n - 1):
+            p[i] = -2 * (s[i + 1] - m[i]) - 4 * h[i] * (s[i] - m[i])
+        p[-1] = p[0]
+        return p
+
 
 def get_first_derivatives(x, y):
     """
     Return 1-D array of first derivatives.
 
-    Given two 1-D arrays 'x' and 'y', returns first derivatives in
-    points ''(x, y)''.
+    Given two 1-D arrays ''x'' and ''y'', returns first derivatives in
+    points '(x, y)'.
 
     Parameters
     ----------
@@ -92,11 +113,11 @@ def get_first_derivatives(x, y):
     Returns
     -------
     numpy.array
-        First derivatives in points ''(x, y)''
+        First derivatives in points '(x, y)'
 
     Notes
     -----
-    Array 'x' should be sorted.
+    Array ''x'' should be sorted.
 
     First and last y-coordinates should be equal to reach the periodic
     condition.
