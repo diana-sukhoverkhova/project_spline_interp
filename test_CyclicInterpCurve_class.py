@@ -31,17 +31,15 @@ def test_call_less():
     y = np.array([1, 2, 3, 1])
     der = np.array([4, 5, 6, 7])
     test = CyclicInterpCurve(x, y, der)
-    with pytest.raises(ValueError):
-        test(4)
+    assert test(4)==test(7)
 
 
 def test_call_great():
     x = np.array([5, 6, 7, 8])
-    y = np.array([1,2,3,1])
+    y = np.array([1, 2, 3, 1])
     der = np.array([4, 5, 6, 7])
     test = CyclicInterpCurve(x, y, der)
-    with pytest.raises(ValueError):
-        test(9)
+    assert test(9)==test(6)
 
 
 def test_strict_asc():

@@ -95,6 +95,21 @@ class CyclicInterpCurve:
         p[-1] = p[0]
         return p
 
+    def print_ppoly(self):
+        third_d = np.zeros(self.n - 1)
+        sec_d = np.zeros(self.n - 1)
+        first_d = np.zeros(self.n - 1)
+        free_d = np.zeros(self.n - 1)
+        for i in range(self.n - 1):
+            hi = 1 / (self.x[i+1] - self.x[i])
+            mi = (self.y[i+1] - self.y[i]) / (self.x[i+1] - self.x[i])
+            pi = self.der[i] * self.x[i] - mi * (self.x[i] + self.x[i+1]) + self.der[i-1] * self.x[i+1]
+            third_d[i] = hi**2 * (self.der[i] + self.der[i+1] - 2*mi)
+            sec_d[i] = hi**2 * ((2*mi - self.der[i] - self.der[i+1]) * (self.x[i] + self.x[i+1]) - pi)
+            first_d[i] = mi + hi**2 * ((-2*mi + self.der[i] + self.der[i+1])*self.x[i] * self.x[i+1] + pi*(self.x[i] + self.x[i+1]))
+            free_d[i] = (self.y[i]*self.x[i+1] - self.y[i+1]*self.x[i]) * hi - hi**2 * pi
+        print(third_d, '\n', sec_d, '\n', first_d, '\n', free_d)
+
 
 def get_first_derivatives(x, y):
     """
@@ -312,3 +327,18 @@ def thomas_algorithm(a, b, c, d):
     for i in range(n - 2, -1, -1):
         x[i] += dc[i] - cc[i] * x[i + 1]
     return x
+
+
+
+import scipy.interpolate as ipt
+import numpy as np
+
+x = [0.9, 1.3, 1.9, 2.1, 2.6, 3.0, 3.9, 4.4, 4.7, 5.0, 6.0,
+     7.0, 8.0, 9.2, 10.5, 11.3, 11.6, 12.0, 12.6, 13.0, 13.3]
+y = [1.3, 1.5, 1.85, 2.1, 2.6, 2.7, 2.4, 2.15, 2.05, 2.1,
+     2.25, 2.3, 2.25, 1.95, 1.4, 0.9, 0.7, 0.6, 0.5, 0.4, 1.3]
+
+csp = ipt.CubicSpline(x, y, bc_type='periodic', extrapolate='periodic')
+spl = make_spline(np.array(x, dtype=float), np.array(y, dtype=float))
+spl.print_ppoly()
+print('\n\n\n',  csp.c)
