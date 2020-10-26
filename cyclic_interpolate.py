@@ -16,11 +16,11 @@ class CyclicInterpCurve:
 
     Parameters
     ----------
-    x : 1-D array, shape (k,)
+    x : 1-D array, shape (n,)
         Values of x - coordinate of a given set of points.
-    y : 1-D array, shape (k,)
+    y : 1-D array, shape (n,)
         Values of y - coordinate of a given set of points.
-    der : 1-D array, shape (k,)
+    der : 1-D array, shape (n,)
         First derivatives, found from condition of equality
         neighboring derivatives and from a given set of points (x, y)
         for building up cubic polynomial in Hermite form.
@@ -29,6 +29,8 @@ class CyclicInterpCurve:
     ----------
     n : int
         Number of given points.
+    c : 1-D array, shape (n,)
+        Array of coefficients of polynomials
 
     Methods
     -------
@@ -46,6 +48,16 @@ class CyclicInterpCurve:
         self.y = y
         self.n = len(x)
         self.der = np.copy(der)  # vector of derivatives
+        self.c = np.zeros([4, self.n-1])
+        for i in range(self.n-1):
+            h = x[i+1]-x[i]
+            m = (y[i+1]-y[i])/h
+            sl1 = (2*m-der[i]-der[i+1])/(h*h)
+            sl2 = (-m*x[i]+der[i+1]*x[i]+der[i]*x[i+1]-m*x[i+1])/(h*h)
+            self.c[0, i] = -sl1
+            self.c[1, i] = -sl2+(x[i]+x[i+1])*sl1
+            self.c[2, i] = (x[i]+x[i+1])*sl2-x[i]*x[i+1]*sl1+(y[i+1]-y[i])/h
+            self.c[3, i] = -x[i]*x[i+1]*sl2-x[i]*y[i+1]/h + x[i+1]*y[i]/h
 
     def __call__(self, xnew):
         """
@@ -94,21 +106,6 @@ class CyclicInterpCurve:
             p[i] = -2 * (s[i + 1] - m[i]) - 4 * h[i] * (s[i] - m[i])
         p[-1] = p[0]
         return p
-
-    def print_ppoly(self):
-        third_d = np.zeros(self.n - 1)
-        sec_d = np.zeros(self.n - 1)
-        first_d = np.zeros(self.n - 1)
-        free_d = np.zeros(self.n - 1)
-        for i in range(self.n - 1):
-            hi = 1 / (self.x[i+1] - self.x[i])
-            mi = (self.y[i+1] - self.y[i]) / (self.x[i+1] - self.x[i])
-            pi = self.der[i] * self.x[i] - mi * (self.x[i] + self.x[i+1]) + self.der[i-1] * self.x[i+1]
-            third_d[i] = hi**2 * (self.der[i] + self.der[i+1] - 2*mi)
-            sec_d[i] = hi**2 * ((2*mi - self.der[i] - self.der[i+1]) * (self.x[i] + self.x[i+1]) - pi)
-            first_d[i] = mi + hi**2 * ((-2*mi + self.der[i] + self.der[i+1])*self.x[i] * self.x[i+1] + pi*(self.x[i] + self.x[i+1]))
-            free_d[i] = (self.y[i]*self.x[i+1] - self.y[i+1]*self.x[i]) * hi - hi**2 * pi
-        print(third_d, '\n', sec_d, '\n', first_d, '\n', free_d)
 
 
 def get_first_derivatives(x, y):
@@ -327,18 +324,3 @@ def thomas_algorithm(a, b, c, d):
     for i in range(n - 2, -1, -1):
         x[i] += dc[i] - cc[i] * x[i + 1]
     return x
-
-
-
-import scipy.interpolate as ipt
-import numpy as np
-
-x = [0.9, 1.3, 1.9, 2.1, 2.6, 3.0, 3.9, 4.4, 4.7, 5.0, 6.0,
-     7.0, 8.0, 9.2, 10.5, 11.3, 11.6, 12.0, 12.6, 13.0, 13.3]
-y = [1.3, 1.5, 1.85, 2.1, 2.6, 2.7, 2.4, 2.15, 2.05, 2.1,
-     2.25, 2.3, 2.25, 1.95, 1.4, 0.9, 0.7, 0.6, 0.5, 0.4, 1.3]
-
-csp = ipt.CubicSpline(x, y, bc_type='periodic', extrapolate='periodic')
-spl = make_spline(np.array(x, dtype=float), np.array(y, dtype=float))
-spl.print_ppoly()
-print('\n\n\n',  csp.c)
