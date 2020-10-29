@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 accuracy = 1e-14
 
@@ -77,7 +78,8 @@ class CyclicInterpCurve:
         Build up spline function - cubic polynomial in Hermite form
         and returns value of this spline in t.
         """
-        i = np.argmax(self.x > t) - 1
+        #i = np.argmax(self.x > t) - 1
+        i = max(np.argmax(self.x >= t) - 1, 0)
         xa = self.x[i]
         xb = self.x[i + 1]
         ya = self.y[i]
@@ -99,11 +101,12 @@ class CyclicInterpCurve:
         h = np.zeros(n - 1)
         m = np.zeros(n - 1)
         p = np.zeros(n)
+
         for i in range(self.n - 1):
             h[i] = 1 / (self.x[i + 1] - self.x[i])
             m[i] = (self.y[i + 1] - self.y[i]) / (self.x[i + 1] - self.x[i])
         for i in range(self.n - 1):
-            p[i] = -2 * (s[i + 1] - m[i]) - 4 * h[i] * (s[i] - m[i])
+            p[i] = -2 * h[i] * (s[i + 1] - m[i]) - 4 * h[i] * (s[i] - m[i])
         p[-1] = p[0]
         return p
 
@@ -140,6 +143,8 @@ def get_first_derivatives(x, y):
     The case of 3 points is performed with the same algorithm
     made up manually
     """
+    x = np.array(x)
+    y = np.array(y)
     if x is None or y is None:
         raise ValueError("Some of arguments are None")
     if not all(u < v for u, v in zip(x, x[1:])):
@@ -156,13 +161,13 @@ def get_first_derivatives(x, y):
         s = (m / h).sum() / (1. / h).sum()
         return [s, s, s]
     n = x.shape[0] - 2  # n + 2 dots given, splits into n + 1 intervals
-    s = np.zeros(n + 1)
-    r = np.zeros(n + 1)
+    s = np.zeros(n + 1, dtype=float)
+    r = np.zeros(n + 1, dtype=float)
     # a, b, c - 3 arrays that form a tridiagonal matrix
-    a = np.zeros(n)
-    b = np.zeros(n + 1)
-    c = np.zeros(n)
-    d = np.zeros(n + 1)  # vector of constant terms
+    a = np.zeros(n, dtype=float)
+    b = np.zeros(n + 1, dtype=float)
+    c = np.zeros(n, dtype=float)
+    d = np.zeros(n + 1, dtype=float)  # vector of constant terms
     for i in range(n + 1):
         if np.allclose(x[i + 1], x[i], atol=accuracy):
             raise ZeroDivisionError("Division by zero", x[i], x[i + 1])
@@ -173,12 +178,13 @@ def get_first_derivatives(x, y):
         b[i] = 2 * (s[i - 1] + s[i])
         c[i] = s[i]
         d[i] = 3 * (s[i - 1] * r[i - 1] + s[i] * r[i])
-    d[0] = s[n] * r[n] + s[0] * r[0]
-    d[n] = s[n - 1] * r[n - 1] + s[n] * r[n]
+    d[0] = 3*(s[n] * r[n] + s[0] * r[0])
+    d[n] = 3*(s[n - 1] * r[n - 1] + s[n] * r[n])
     b[0] = 2 * (s[n] + s[0])
     c[0] = s[0]
     a[n - 1] = s[n - 1]
     b[n] = 2 * (s[n - 1] + s[n])
+
     # as well as first derivatives are equal we add the first element of solution to the end
     result = sherman_morrison_algorithm(a, b, c, d, s[n], s[n])
     return np.append(result, result[0])
@@ -228,8 +234,8 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
                          a.shape, b.shape, c.shape, r.shape)
     ac, bc, cc = np.copy(a), np.copy(b), np.copy(c)
     n = b.shape[0]  # size
-    u = np.zeros(n)
-    v = np.zeros(n)
+    u = np.zeros(n, dtype=float)
+    v = np.zeros(n, dtype=float)
     u[0] = alpha
     u[-1] = beta
     v[0] = 1
@@ -239,7 +245,7 @@ def sherman_morrison_algorithm(a, b, c, r, alpha, beta):
 
     w = thomas_algorithm(ac, bc, cc, r)
     z = thomas_algorithm(ac, bc, cc, u)
-    x = np.zeros(n)
+    x = np.zeros(n, dtype=float)
     if w.shape != v.shape or z.shape != v.shape:
         raise ValueError("Wrong output from Thomas algorithm")
     vw = v.dot(w)
@@ -278,6 +284,7 @@ def thomas_algorithm(a, b, c, d):
     lengths of vectors a and c is m - 1,
     and length of vector d is n.
     """
+
     ac, bc, cc, dc = np.copy(a), np.copy(b), np.copy(c), np.copy(d)
     if ac is None or bc is None or cc is None or dc is None:
         raise Exception("Error of copying")
@@ -319,8 +326,71 @@ def thomas_algorithm(a, b, c, d):
 
     # stage 2
 
-    x = np.zeros([n, ])
+    x = np.zeros([n, ], dtype=float)
     x[n - 1] += dc[n - 1]
     for i in range(n - 2, -1, -1):
         x[i] += dc[i] - cc[i] * x[i + 1]
     return x
+
+
+
+import scipy.interpolate as ipt
+
+#x = [0.9, 1.3, 1.9, 2.1, 2.6, 3.0, 3.9, 4.4, 4.7, 5.0, 6.0,
+#     7.0, 8.0, 9.2, 10.5, 11.3, 11.6, 12.0, 12.6, 13.0, 13.3]
+#y = [1.3, 1.5, 1.85, 2.1, 2.6, 2.7, 2.4, 2.15, 2.05, 2.1,
+#     2.25, 2.3, 2.25, 1.95, 1.4, 0.9, 0.7, 0.6, 0.5, 0.4, 1.3]
+
+
+x = np.array([1, 2, 3, 4])
+y = np.array([3, 4, 5, 3])
+
+'''
+rndm = np.random.RandomState(1234)
+x = np.sort(rndm.uniform(size=5))
+y = np.random.uniform(size=5)
+y[-1] = y[0]
+'''
+#x = np.array([0, 0.52, 1.04, 1.57, 2.09, 2.61, 3.14 ])
+#x = np.array([0, 0.52, 1.04, 1.57])
+#y = np.sin(x)
+#y[-1] = y[0]
+
+csp = ipt.CubicSpline(x, y, bc_type='periodic', extrapolate='periodic')
+spl = make_spline(x, y)
+print(spl.der)
+print(csp.derivative(1)(x))
+print(csp.c, '\n\n\n', spl.c)
+#print(csp.c - spl.c)
+
+
+'''
+newx = np.linspace(3, 10, 2000)
+plt.plot(x, csp(x))
+hcs = np.vectorize(spl.hermite_cubic_spline)
+plt.plot(x, hcs(x))
+plt.show()
+
+plt.plot(x, csp.derivative(1)(x), label='csp')
+plt.plot(x, spl.der, label='spl')
+plt.legend()
+plt.show()
+'''
+'''
+newx = np.linspace(3, 10, 2000)
+plt.plot(x, csp(x))
+
+newy = np.zeros(len(x), dtype = float)
+for i in range(len(x)):
+    newy[i] = spl(x[i])
+
+plt.plot(x, newy)
+plt.show()
+'''
+
+'''
+newx = np.linspace(12, 13, 2000)
+plt.plot(newx, csp.derivative(2)(newx))
+plt.plot(x, spl.second_derivatives())
+plt.show()
+'''
