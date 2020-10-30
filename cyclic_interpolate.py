@@ -30,8 +30,9 @@ class CyclicInterpCurve:
     ----------
     n : int
         Number of given points.
-    c : 1-D array, shape (n,)
+    c : 2-D array, shape (4, n)
         Array of coefficients of polynomials
+        ''sum(csp.c[m,i]*(xp-x[i])**(3-m) for m in range(4))''
 
     Methods
     -------
@@ -45,20 +46,18 @@ class CyclicInterpCurve:
             raise ValueError("Cannot initialize an instance because some parameters is None")
         if not all(u < v for u, v in zip(x, x[1:])):
             raise ValueError("x should strictly increase")
-        self.x = x
-        self.y = y
+        self.x = np.array(x)
+        self.y = np.array(y)
         self.n = len(x)
         self.der = np.copy(der)  # vector of derivatives
         self.c = np.zeros([4, self.n-1])
         for i in range(self.n-1):
             h = x[i+1]-x[i]
             m = (y[i+1]-y[i])/h
-            sl1 = (2*m-der[i]-der[i+1])/(h*h)
-            sl2 = (-m*x[i]+der[i+1]*x[i]+der[i]*x[i+1]-m*x[i+1])/(h*h)
-            self.c[0, i] = -sl1
-            self.c[1, i] = -sl2+(x[i]+x[i+1])*sl1
-            self.c[2, i] = (x[i]+x[i+1])*sl2-x[i]*x[i+1]*sl1+(y[i+1]-y[i])/h
-            self.c[3, i] = -x[i]*x[i+1]*sl2-x[i]*y[i+1]/h + x[i+1]*y[i]/h
+            self.c[3, i] = y[i]
+            self.c[2, i] = der[i]
+            self.c[1, i] = (3*m-2*der[i]-der[i+1])/h
+            self.c[0, i] = -(2*m-der[i]-der[i+1])/(h*h)
 
     def __call__(self, xnew):
         """
@@ -331,66 +330,3 @@ def thomas_algorithm(a, b, c, d):
     for i in range(n - 2, -1, -1):
         x[i] += dc[i] - cc[i] * x[i + 1]
     return x
-
-
-
-import scipy.interpolate as ipt
-
-#x = [0.9, 1.3, 1.9, 2.1, 2.6, 3.0, 3.9, 4.4, 4.7, 5.0, 6.0,
-#     7.0, 8.0, 9.2, 10.5, 11.3, 11.6, 12.0, 12.6, 13.0, 13.3]
-#y = [1.3, 1.5, 1.85, 2.1, 2.6, 2.7, 2.4, 2.15, 2.05, 2.1,
-#     2.25, 2.3, 2.25, 1.95, 1.4, 0.9, 0.7, 0.6, 0.5, 0.4, 1.3]
-
-
-x = np.array([1, 2, 3, 4])
-y = np.array([3, 4, 5, 3])
-
-'''
-rndm = np.random.RandomState(1234)
-x = np.sort(rndm.uniform(size=5))
-y = np.random.uniform(size=5)
-y[-1] = y[0]
-'''
-#x = np.array([0, 0.52, 1.04, 1.57, 2.09, 2.61, 3.14 ])
-#x = np.array([0, 0.52, 1.04, 1.57])
-#y = np.sin(x)
-#y[-1] = y[0]
-
-csp = ipt.CubicSpline(x, y, bc_type='periodic', extrapolate='periodic')
-spl = make_spline(x, y)
-print(spl.der)
-print(csp.derivative(1)(x))
-print(csp.c, '\n\n\n', spl.c)
-#print(csp.c - spl.c)
-
-
-'''
-newx = np.linspace(3, 10, 2000)
-plt.plot(x, csp(x))
-hcs = np.vectorize(spl.hermite_cubic_spline)
-plt.plot(x, hcs(x))
-plt.show()
-
-plt.plot(x, csp.derivative(1)(x), label='csp')
-plt.plot(x, spl.der, label='spl')
-plt.legend()
-plt.show()
-'''
-'''
-newx = np.linspace(3, 10, 2000)
-plt.plot(x, csp(x))
-
-newy = np.zeros(len(x), dtype = float)
-for i in range(len(x)):
-    newy[i] = spl(x[i])
-
-plt.plot(x, newy)
-plt.show()
-'''
-
-'''
-newx = np.linspace(12, 13, 2000)
-plt.plot(newx, csp.derivative(2)(newx))
-plt.plot(x, spl.second_derivatives())
-plt.show()
-'''
