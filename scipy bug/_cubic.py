@@ -697,15 +697,7 @@ class CubicSpline(CubicHermiteSpline):
                 # In case when number of points is 3 we should count derivatives
                 # manually
                 if n == 3:
-                    assert len(x) == len(y) == 3
-                    y[-1] = y[0]  # shortcut
-
-                    x, y = map(np.asarray, (x, y))
-
-                    h = x[1:] - x[:-1]
-                    m = (y[1:] - y[:-1]) / h
-
-                    t = (m / h).sum() / (1. / h).sum()
+                    t = (slope / dx).sum() / (1. / dx).sum()
                     s = [t, t, t]
                 else:
                     # Due to the periodicity, and because y[-1] = y[0], the linear
@@ -728,7 +720,7 @@ class CubicSpline(CubicHermiteSpline):
                     a_m1_0 = dx[-2]  # lower left corner value: A[-1, 0]
                     a_m1_m2 = dx[-1]
                     a_m1_m1 = 2 * (dx[-1] + dx[-2])
-                    a_m2_m1 = dx[-2]
+                    a_m2_m1 = dx[-3]
                     a_0_m1 = dx[0]
 
                     b[0] = 3 * (dxr[0] * slope[-1] + dxr[-1] * slope[0])
