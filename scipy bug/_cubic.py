@@ -11,7 +11,7 @@ __all__ = ["CubicHermiteSpline", "PchipInterpolator", "pchip_interpolate",
            "Akima1DInterpolator", "CubicSpline"]
 
 
-def prepare_input(x, y, axis, dydx=None) -> object:
+def prepare_input(x, y, axis, dydx=None):
     """Prepare input for cubic spline interpolators.
 
     All data are converted to numpy arrays and checked for correctness.
@@ -558,7 +558,7 @@ class CubicSpline(CubicHermiteSpline):
     solution is sought as a parabola passing through given points.
 
     When 'not-a-knot' boundary conditions is applied to both ends, the
-        resulting spline will be the same as returned by `splrep` (with ``s=0``)
+    resulting spline will be the same as returned by `splrep` (with ``s=0``)
     and `InterpolatedUnivariateSpline`, but these two methods use a
     representation in B-spline basis.
 
@@ -637,8 +637,8 @@ class CubicSpline(CubicHermiteSpline):
             else:
                 extrapolate = True
 
-            dxr = dx.reshape([dx.shape[0]] + [1] * (y.ndim - 1))
-            slope = np.diff(y, axis=0) / dxr
+        dxr = dx.reshape([dx.shape[0]] + [1] * (y.ndim - 1))
+        slope = np.diff(y, axis=0) / dxr
 
         # If bc is 'not-a-knot' this change is just a convention.
         # If bc is 'periodic' then we already checked that y[0] == y[-1],
@@ -703,7 +703,7 @@ class CubicSpline(CubicHermiteSpline):
                 b = b[:-1]
 
                 # Also, due to the periodicity, the system is not tri-diagonal.
-                    # We need to compute a "condensed" matrix of shape (n-2, n-2).
+                # We need to compute a "condensed" matrix of shape (n-2, n-2).
                 # See https://web.archive.org/web/20151220180652/http://www.cfm.brown.edu/people/gk/chap6/node14.html
                 # for more explanations.
                 # The condensed matrix is obtained by removing the last column
