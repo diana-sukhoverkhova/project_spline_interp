@@ -13,17 +13,20 @@ def test_none_x():
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_none_y():
     x = np.arange(8)
     y = None
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_none():
     x = None
     y = None
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
+
 
 def test_non_sort():
     rndm = np.random.RandomState(1234)
@@ -32,6 +35,7 @@ def test_non_sort():
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_num_points():
     x = np.arange(2)
     y = np.arange(2)
@@ -39,12 +43,14 @@ def test_num_points():
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_non_periodic():
     x = np.arange(8)
     y = np.arange(8)
 
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
+
 
 def test_shapes_x_greater():
     rndm = np.random.RandomState(1234)
@@ -55,6 +61,7 @@ def test_shapes_x_greater():
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_shapes_x_less():
     rndm = np.random.RandomState(1234)
     x = np.sort(rndm.uniform(size=8))
@@ -64,11 +71,13 @@ def test_shapes_x_less():
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
 
+
 def test_x_asc():
-    x = np.array([1,2,3,2.5,1.5])
+    x = np.array([1, 2, 3, 2.5, 1.5])
     y = np.arange(5)
     with pytest.raises(ValueError):
         get_first_derivatives(x, y)
+
 
 def test_matrix():
     rndm = np.random.RandomState(1234)

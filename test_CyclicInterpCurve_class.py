@@ -11,11 +11,13 @@ def test_init_x():
     with pytest.raises(ValueError):
         make_spline(x, y)
 
+
 def test_init_y():
     x = np.arange(8)
     y = None
     with pytest.raises(ValueError):
         make_spline(x, y)
+
 
 def test_init():
     x = None
@@ -23,21 +25,22 @@ def test_init():
     with pytest.raises(ValueError):
         make_spline(x, y)
 
+
 def test_call_less():
     x = np.array([5, 6, 7, 8])
     y = np.array([1, 2, 3, 1])
     der = np.array([4, 5, 6, 7])
     test = CyclicInterpCurve(x, y, der)
-    with pytest.raises(ValueError):
-        test.__call__(4)
+    assert test(4)==test(7)
+
 
 def test_call_great():
     x = np.array([5, 6, 7, 8])
-    y = np.array([1,2,3,1])
+    y = np.array([1, 2, 3, 1])
     der = np.array([4, 5, 6, 7])
     test = CyclicInterpCurve(x, y, der)
-    with pytest.raises(ValueError):
-        test.__call__(9)
+    assert test(9)==test(6)
+
 
 def test_strict_asc():
     x = np.array([5, 6, 6, 8])
@@ -45,6 +48,7 @@ def test_strict_asc():
     der = np.array([4, 5, 6, 7])
     with pytest.raises(ValueError):
         CyclicInterpCurve(x, y, der)
+
 
 def test_random():
     rndm = np.random.RandomState(1234)
