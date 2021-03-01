@@ -6,7 +6,10 @@ def circle_vector(x,l=1,r=1):
     '''
     returns vector of nodes on circle
     '''
-    #assert len(x) > max(l, r)
+
+    if len(x) < max(l, r):
+        raise ValueError("Too few points to make knot vector")
+
     dx = np.diff(x)
     t = np.zeros(len(x) + l + r)
     t[:l] = [x[0] - sum(dx[-i:]) for i in range(l,0,-1)]
@@ -34,16 +37,17 @@ def bspline(x, t, c, k):
     assert (n >= k+1) and (len(c) >= n)
     return sum(c[i] * B(x, k, i, t) for i in range(n))
 
-def woodbury(A, ll, ur, b, k):
+
+def woodbury(A, ur, ll, b, k):
     '''
     Implementation of Woodbury algorithm applied to banded
     matrices with two blocks in upper right and lower left
     corners.
-    
+
     Parameters
     ----------
     A : 2-D array, shape(k, n)
-        Matrix of diagonals of original matrix(see 
+        Matrix of diagonals of original matrix(see
         'solve_banded' documentation).
     ll : 2-D array, shape(bs,bs)
         Lower left block matrix.
@@ -51,52 +55,55 @@ def woodbury(A, ll, ur, b, k):
         Upper right block matrix.
     b : 1-D array, shape(1,n)
         Vector of constant terms of the SLE.
-        
+
     Returns
     -------
     c : 1-D array, shape(1,n)
         Solution of the original SLE.
-        
+
     Notes
     -----
     SLE - system of linear equations.
-    
+
     'n' should be greater than 'k', otherwise corner block
     elements will intersect diagonals.
     '''
-    k_odd = (k+1) % 2
-    bs = int((k-1)/2) + k_odd
+    k_odd = (k + 1) % 2
+    bs = int((k - 1) / 2) + k_odd
     n = A.shape[1] + 1
-    U = np.zeros((n-1, k-1))
-    V = np.zeros((k-1, n-1)) # V transpose 
+    U = np.zeros((n - 1, k - k % 2))
+    V = np.zeros((k - k % 2, n - 1))  # V transpose
 
     # upper right
 
     U[:bs, :bs] = ur
-    for j in range(bs): 
-        V[j, -bs+j] = 1
+    for j in range(bs):
+        V[j, -bs + j] = 1
 
     # lower left
 
     U[-bs:, -bs:] = ll
-    for j in range(bs): 
-        V[-bs+j, j] = 1
-    
-    Z = sl.solve_banded((bs-k_odd, bs), A, U[:, 0]) # z0
+    for j in range(bs):
+        V[-bs + j, j] = 1
+
+    with np.printoptions(precision=2, suppress=True):
+        print(U, '\n', V)
+
+    Z = sl.solve_banded((bs - k_odd, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
 
-    for i in range(1, k-1):
-        zi = sl.solve_banded((bs-k_odd, bs), A, U[:, i])
+    for i in range(1, k - k % 2):
+        zi = sl.solve_banded((bs - k_odd, bs), A, U[:, i])
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
     Z = Z.transpose()
-    H = sl.inv(np.identity(k - 1) + V @ Z)
+    H = sl.inv(np.identity(k - k % 2) + V @ Z)
 
-    y = sl.solve_banded((bs-k_odd, bs), A, b)
+    y = sl.solve_banded((bs - k_odd, bs), A, b)
     c = y - Z @ (H @ (V @ y))
 
-    return c
+    return np.concatenate((c[-bs + k_odd:], c, c[: bs + 1]))
 
 def make_matrix(x,y,t,k):
     '''
@@ -133,6 +140,8 @@ def make_matrix(x,y,t,k):
 
     offset = (k - 1) / 2
     '''
+    if k % 2 == 0:
+        raise ValueError("Degree of B-spline should be odd")
     n = x.size
     yc = np.copy(y)
     yc = yc[:-1]
