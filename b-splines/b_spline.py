@@ -86,9 +86,6 @@ def woodbury(A, ur, ll, b, k):
     for j in range(bs):
         V[-bs + j, j] = 1
 
-    with np.printoptions(precision=2, suppress=True):
-        print(U, '\n', V)
-
     Z = sl.solve_banded((bs - k_odd, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
 
