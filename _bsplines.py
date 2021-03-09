@@ -636,8 +636,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     'n' should be greater than 'k', otherwise corner block
     elements will intersect diagonals.
     '''
-    k_odd = (k+1) % 2
-    bs = int((k-1)/2) + k_odd
+    bs = int((k-1)/2)
     n = A.shape[1] + 1
 
     U = np.zeros((n - 1, k - 1))
@@ -658,18 +657,18 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     Z = sl.solve_banded((bs-k_odd, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
     
-    for i in range(1, k-k % 2):
-        zi = sl.solve_banded((bs-k_odd, bs), A, U[:, i])
+    for i in range(1, k - 1):
+        zi = sl.solve_banded((bs, bs), A, U[:, i])
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
     Z = Z.transpose()
-    H = sl.inv(np.identity(k - k % 2) + V @ Z)
+    H = sl.inv(np.identity(k - 1) + V @ Z)
 
-    y = sl.solve_banded((bs-k_odd, bs), A, b)
+    y = sl.solve_banded((bs, bs), A, b)
     c = y - Z @ (H @ (V @ y))
 
-    return np.concatenate((c[-bs + k_odd:], c, c[: bs + 1]))
+    return np.concatenate((c[-bs:], c, c[: bs + 1]))
 
 def _periodic_nodes(x,l=1,r=1):
     '''
@@ -717,8 +716,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
           equivalent to ``bc_type=([(2, 0.0)], [(2, 0.0)])``.
         * ``"not-a-knot"`` (default): The first and second segments are the same
           polynomial. This is equivalent to having ``bc_type=None``.
-        * ``"periodic"``: The first 'k-1' derivatives are equivalent in first
-          and last input points.
+        * ``"periodic"``: The values and the first 'k-1' derivatives are equivalent
+          in first and last input points.
 
     axis : int, optional
         Interpolation axis. Default is 0.
@@ -800,13 +799,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     """
     # convert string aliases for the boundary conditions
-    if bc_type is None or bc_type == 'not-a-knot':
+    if bc_type is None or bc_type == 'not-a-knot' or bc_type == 'periodic':
         deriv_l, deriv_r = None, None
-    elif bc_type == 'periodic':
-        deriv_l, deriv_r = None, None
-        if t is not None:
-            raise NotImplementedError("Periodic case is solved with a special\
-                                    form of vector of nodes.")
     elif isinstance(bc_type, str):
         deriv_l, deriv_r = bc_type, bc_type
     else:
@@ -856,7 +850,7 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                 t = np.r_[(x[0],)*(k+1),
                            t[1:-1],
                            (x[-1],)*(k+1)]
-            elif bc_type = 'periodic':
+            elif bc_type == 'periodic':
                 t = _periodic_nodes(x, k, k)
             else:
                 t = _not_a_knot(x, k)
@@ -885,7 +879,7 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         raise ValueError('Out of bounds w/ x = %s.' % x)
     if bc_type == 'periodic' and k % 2 == 0:
         raise NotImplementedError('Even k periodic case is not implemented yet.')
-    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-14):
+    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
         raise ValueError('First and last points does not match while periodic case\
                         expected')
 
@@ -922,7 +916,7 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         A = np.zeros((k, n - 1)) # matrix of diagonals suitable for 'solve_banded'
         for i in range(n-1):
             A[:,i] = _bspl.evaluate_all_bspl(t, k, x[i], i + k)[:-1][::-1]
-        offset = int((k-1)/2) + (k + 1) % 2
+        offset = int((k-1)/2)
         # upper right and lower left blocks of the original matrix
         ur = np.zeros((offset,offset))
         ll = np.zeros((offset,offset))
