@@ -819,6 +819,15 @@ class TestInterp(object):
             b = make_interp_spline(self.xx, self.yy, k)
             assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
 
+    def test_periodic(self):
+        # k = 5 here for more derivatives
+        b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic')
+        assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
+        # in periodic case it is expected equality of k-1 first
+        # derivatives at the boundaries
+        for i in range(k):
+            assert_allclose(b(xx[0], nu=i), b(xx[-1], nu=i), atol=1e-14)
+
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
 
@@ -1065,6 +1074,37 @@ class TestInterp(object):
         cf = make_interp_full_matr(x, y, t, k)
         assert_allclose(b.c, cf, atol=1e-14, rtol=1e-14)
 
+    def woodbury_test():
+        '''
+        Random elements in diagonal matrix with blocks in the
+        left lower and right upper corners checking the
+        implementation of Woodbury algorithm.
+        '''
+
+        def randomize(shape):
+            return np.random.random_sample(shape) * 20 - 10
+
+        for k in range(3, 32, 2):
+            np.random.seed(1234)
+            n = 201
+            offset = int((k - 1) / 2)
+            a = np.diagflat(randomize((1, n)))
+            for i in range(1, offset + 1):
+                a[:-i, i:] += np.diagflat(randomize((1, n - i)))
+                a[i:, :-i] += np.diagflat(randomize((1, n - i)))
+            ur = randomize((offset, offset))
+            a[:offset, -offset:] = ur
+            ll = randomize((offset, offset))
+            a[-offset:, :offset] = ll
+            d = np.zeros((k, n))
+            for i, j in enumerate(range(offset, -offset - 1, -1)):
+                if j < 0:
+                    d[i, :j] = np.diagonal(a, offset=j)
+                else:
+                    d[i, j:] = np.diagonal(a, offset=j)
+            b = randomize((1, n))
+            np.allclose(woodbury(d, ll, ur, b.T, k), np.linalg.solve(a, b.T))
+
 
 def make_interp_full_matr(x, y, t, k):
     """Assemble an spline order k with knots t to interpolate
@@ -1089,59 +1129,6 @@ def make_interp_full_matr(x, y, t, k):
         # fill a row
         bb = _bspl.evaluate_all_bspl(t, k, xval, left)
         A[j, left-k:left+1] = bb
-
-    c = sl.solve(A, y)
-    return c
-
-
-### XXX: 'periodic' interp spline using full matrices
-def make_interp_per_full_matr(x, y, t, k):
-    x, y, t = map(np.asarray, (x, y, t))
-
-    n = x.size
-    nt = t.size - k - 1
-
-    # have `n` conditions for `nt` coefficients; need nt-n derivatives
-    assert nt - n == k - 1
-
-    # LHS: the collocation matrix + derivatives at edges
-    A = np.zeros((nt, nt), dtype=np.float_)
-
-    # derivatives at x[0]:
-    offset = 0
-
-    if x[0] == t[k]:
-        left = k
-    else:
-        left = np.searchsorted(t, x[0]) - 1
-
-    if x[-1] == t[k]:
-        left2 = k
-    else:
-        left2 = np.searchsorted(t, x[-1]) - 1
-
-    for i in range(k-1):
-        bb = _bspl.evaluate_all_bspl(t, k, x[0], left, nu=i+1)
-        A[i, left-k:left+1] = bb
-        bb = _bspl.evaluate_all_bspl(t, k, x[-1], left2, nu=i+1)
-        A[i, left2-k:left2+1] = -bb
-        offset += 1
-
-    # RHS
-    y = np.r_[[0]*(k-1), y]
-
-    # collocation matrix
-    for j in range(n):
-        xval = x[j]
-        # find interval
-        if xval == t[k]:
-            left = k
-        else:
-            left = np.searchsorted(t, xval) - 1
-
-        # fill a row
-        bb = _bspl.evaluate_all_bspl(t, k, xval, left)
-        A[j + offset, left-k:left+1] = bb
 
     c = sl.solve(A, y)
     return c
