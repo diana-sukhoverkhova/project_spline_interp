@@ -654,7 +654,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     for j in range(bs): 
         V[-bs+j, j] = 1
     
-    Z = sl.solve_banded((bs-k_odd, bs), A, U[:, 0])  # z0
+    Z = sl.solve_banded((bs, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
     
     for i in range(1, k - 1):
@@ -668,7 +668,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     y = sl.solve_banded((bs, bs), A, b)
     c = y - Z @ (H @ (V @ y))
 
-    return np.concatenate((c[-bs:], c, c[: bs + 1]))
+    return c
 
 def _periodic_nodes(x,l=1,r=1):
     '''
@@ -932,6 +932,7 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
             ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
 
         c = _woodbury_algorithm(A, ll, ur, y[:-1], k)
+        c = np.concatenate((c[-bs:], c, c[: bs + 1]))
         return BSpline.construct_fast(t, c, k, axis=axis)
 
     # set up the RHS: values to interpolate (+ derivative values, if any)

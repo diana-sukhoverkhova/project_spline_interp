@@ -1081,20 +1081,17 @@ class TestInterp(object):
         implementation of Woodbury algorithm.
         '''
 
-        def randomize(shape):
-            return np.random.random_sample(shape) * 20 - 10
-
         for k in range(3, 32, 2):
             np.random.seed(1234)
             n = 201
             offset = int((k - 1) / 2)
-            a = np.diagflat(randomize((1, n)))
+            a = np.diagflat(np.random.random((1, n)))
             for i in range(1, offset + 1):
-                a[:-i, i:] += np.diagflat(randomize((1, n - i)))
-                a[i:, :-i] += np.diagflat(randomize((1, n - i)))
-            ur = randomize((offset, offset))
+                a[:-i, i:] += np.diagflat(np.random.random((1, n - i)))
+                a[i:, :-i] += np.diagflat(np.random.random((1, n - i)))
+            ur = np.random.random((offset, offset))
             a[:offset, -offset:] = ur
-            ll = randomize((offset, offset))
+            ll = np.random.random((offset, offset))
             a[-offset:, :offset] = ll
             d = np.zeros((k, n))
             for i, j in enumerate(range(offset, -offset - 1, -1)):
@@ -1102,8 +1099,8 @@ class TestInterp(object):
                     d[i, :j] = np.diagonal(a, offset=j)
                 else:
                     d[i, j:] = np.diagonal(a, offset=j)
-            b = randomize((1, n))
-            assert_allclose(woodbury(d, ll, ur, b.T, k), np.linalg.solve(a, b.T), atol=1e-15)
+            b = np.random.random(n)
+            assert_allclose(_woodbury_algorithm(d, ur, ll, b, k), np.linalg.solve(a, b), atol=1e-15)
 
 
 def make_interp_full_matr(x, y, t, k):
