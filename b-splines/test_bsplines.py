@@ -1103,7 +1103,7 @@ class TestInterp(object):
                 else:
                     d[i, j:] = np.diagonal(a, offset=j)
             b = randomize((1, n))
-            np.allclose(woodbury(d, ll, ur, b.T, k), np.linalg.solve(a, b.T))
+            assert_allclose(woodbury(d, ll, ur, b.T, k), np.linalg.solve(a, b.T), atol=1e-15)
 
 
 def make_interp_full_matr(x, y, t, k):
