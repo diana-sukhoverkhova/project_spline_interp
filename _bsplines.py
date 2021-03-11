@@ -672,7 +672,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
 def _periodic_nodes(x,l=1,r=1):
     '''
-    returns vector of nodes on circle
+    returns vector of nodes on a ring
     '''
     assert len(x) > max(l, r)
     dx = np.diff(x)
@@ -681,6 +681,44 @@ def _periodic_nodes(x,l=1,r=1):
     t[l:-r] = x
     t[-r:] = [x[-1] + sum(dx[:i]) for i in range(1,r+1)]
     return t
+
+def _make_periodic_spline(bc_type):
+    '''
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+    b : a BSpline object of the degree ``k`` and with knots ``t``.
+    '''
+    if bc_type == 'periodic' and k % 2 == 0:
+        raise NotImplementedError('Even k periodic case is not implemented yet.')
+
+    # solving periodic case using Woodbury formula
+    # set up RHS
+    A = np.zeros((k, n - 1)) # matrix of diagonals suitable for 'solve_banded'
+    for i in range(n-1):
+        A[:,i] = _bspl.evaluate_all_bspl(t, k, x[i], i + k)[:-1][::-1]
+    offset = int((k-1)/2)
+    # upper right and lower left blocks of the original matrix
+    ur = np.zeros((offset,offset))
+    ll = np.zeros((offset,offset))
+    for i in range(1,offset + 1):
+        A[offset - i] = np.roll(A[offset - i],i)
+        if k % 2 == 1 or i < offset:
+            A[offset + i] = np.roll(A[offset + i],-i)
+            ur[-i:,i-1] = np.copy(A[offset + i,-i:])
+        ll[-i,:i] = np.copy(A[offset - i,:i])
+    ur = ur.T
+    for i in range(1,offset):
+        ll[:,i] = np.roll(ll[:,i],i)
+        ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
+
+    c = _woodbury_algorithm(A, ll, ur, y[:-1], k)
+    c = np.concatenate((c[-bs:], c, c[: bs + 1]))
+    return BSpline.construct_fast(t, c, k, axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                        check_finite=True):
@@ -825,6 +863,10 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         c = np.ascontiguousarray(c, dtype=_get_dtype(c.dtype))
         return BSpline.construct_fast(t, c, k, axis=axis)
 
+    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
+        raise ValueError('First and last points does not match while periodic case\
+                        expected')
+
     # special-case k=1 (e.g., Lyche and Morken, Eq.(2.16))
     if k == 1 and t is None:
         if not (deriv_l is None and deriv_r is None):
@@ -875,13 +917,12 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     if t.size < x.size + k + 1:
         raise ValueError('Got %d knots, need at least %d.' %
                          (t.size, x.size + k + 1))
+
+    if bc_type == 'periodic':
+        return _make_periodic_spline(x, y, t, k, bc_type)
+
     if (x[0] < t[k]) or (x[-1] > t[-k]):
         raise ValueError('Out of bounds w/ x = %s.' % x)
-    if bc_type == 'periodic' and k % 2 == 0:
-        raise NotImplementedError('Even k periodic case is not implemented yet.')
-    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
-        raise ValueError('First and last points does not match while periodic case\
-                        expected')
 
     # Here : deriv_l, r = [(nu, value), ...]
     deriv_l = _convert_string_aliases(deriv_l, y.shape[1:])
@@ -909,31 +950,6 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     if nright > 0:
         _bspl._handle_lhs_derivatives(t, k, x[-1], ab, kl, ku, deriv_r_ords,
                                 offset=nt-nright)
-
-    if bc_type == 'periodic':
-        # solving periodic case using Woodbury formula
-        # set up RHS
-        A = np.zeros((k, n - 1)) # matrix of diagonals suitable for 'solve_banded'
-        for i in range(n-1):
-            A[:,i] = _bspl.evaluate_all_bspl(t, k, x[i], i + k)[:-1][::-1]
-        offset = int((k-1)/2)
-        # upper right and lower left blocks of the original matrix
-        ur = np.zeros((offset,offset))
-        ll = np.zeros((offset,offset))
-        for i in range(1,offset + 1):
-            A[offset - i] = np.roll(A[offset - i],i)
-            if k % 2 == 1 or i < offset:
-                A[offset + i] = np.roll(A[offset + i],-i)
-                ur[-i:,i-1] = np.copy(A[offset + i,-i:])
-            ll[-i,:i] = np.copy(A[offset - i,:i])
-        ur = ur.T
-        for i in range(1,offset):
-            ll[:,i] = np.roll(ll[:,i],i)
-            ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
-
-        c = _woodbury_algorithm(A, ll, ur, y[:-1], k)
-        c = np.concatenate((c[-bs:], c, c[: bs + 1]))
-        return BSpline.construct_fast(t, c, k, axis=axis)
 
     # set up the RHS: values to interpolate (+ derivative values, if any)
     extradim = prod(y.shape[1:])
