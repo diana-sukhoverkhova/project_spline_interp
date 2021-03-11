@@ -682,7 +682,7 @@ def _periodic_nodes(x,l=1,r=1):
     t[-r:] = [x[-1] + sum(dx[:i]) for i in range(1,r+1)]
     return t
 
-def _make_periodic_spline(bc_type):
+def _make_periodic_spline(x, y, t, k):
     '''
 
     Parameters
@@ -693,7 +693,7 @@ def _make_periodic_spline(bc_type):
     -------
     b : a BSpline object of the degree ``k`` and with knots ``t``.
     '''
-    if bc_type == 'periodic' and k % 2 == 0:
+    if k % 2 == 0:
         raise NotImplementedError('Even k periodic case is not implemented yet.')
 
     # solving periodic case using Woodbury formula
@@ -917,12 +917,11 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     if t.size < x.size + k + 1:
         raise ValueError('Got %d knots, need at least %d.' %
                          (t.size, x.size + k + 1))
-
-    if bc_type == 'periodic':
-        return _make_periodic_spline(x, y, t, k, bc_type)
-
     if (x[0] < t[k]) or (x[-1] > t[-k]):
         raise ValueError('Out of bounds w/ x = %s.' % x)
+
+    if bc_type == 'periodic':
+        return _make_periodic_spline(x, y, t, k)
 
     # Here : deriv_l, r = [(nu, value), ...]
     deriv_l = _convert_string_aliases(deriv_l, y.shape[1:])
