@@ -672,7 +672,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
 def _periodic_nodes(x,l=1,r=1):
     '''
-    returns vector of nodes on a ring
+    returns vector of nodes on a circle
     '''
     assert len(x) > max(l, r)
     dx = np.diff(x)
@@ -717,7 +717,7 @@ def _make_periodic_spline(x, y, t, k):
         ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
 
     c = _woodbury_algorithm(A, ll, ur, y[:-1], k)
-    c = np.concatenate((c[-bs:], c, c[: bs + 1]))
+    c = np.concatenate((c[-bs:], c, c[:bs + 1]))
     return BSpline.construct_fast(t, c, k, axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
@@ -863,10 +863,6 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         c = np.ascontiguousarray(c, dtype=_get_dtype(c.dtype))
         return BSpline.construct_fast(t, c, k, axis=axis)
 
-    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
-        raise ValueError('First and last points does not match while periodic case\
-                        expected')
-
     # special-case k=1 (e.g., Lyche and Morken, Eq.(2.16))
     if k == 1 and t is None:
         if not (deriv_l is None and deriv_r is None):
@@ -903,6 +899,13 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     y = np.rollaxis(y, axis)    # now internally interp axis is zero
 
+    if bc_type == 'periodic':
+        if not np.allclose(y[0],y[-1],atol=1e-15):
+            raise ValueError('First and last points does not match while periodic case\
+                        expected')
+        else:
+            return _make_periodic_spline(x, y, t, k)
+
     if x.ndim != 1 or np.any(x[1:] < x[:-1]):
         raise ValueError("Expect x to be a 1-D sorted array_like.")
     if np.any(x[1:] == x[:-1]):
@@ -919,9 +922,6 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                          (t.size, x.size + k + 1))
     if (x[0] < t[k]) or (x[-1] > t[-k]):
         raise ValueError('Out of bounds w/ x = %s.' % x)
-
-    if bc_type == 'periodic':
-        return _make_periodic_spline(x, y, t, k)
 
     # Here : deriv_l, r = [(nu, value), ...]
     deriv_l = _convert_string_aliases(deriv_l, y.shape[1:])
