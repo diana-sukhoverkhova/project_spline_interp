@@ -825,13 +825,13 @@ class TestInterp(object):
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         # in periodic case it is expected equality of k-1 first
         # derivatives at the boundaries
-        for i in range(k):
-            assert_allclose(b(xx[0], nu=i), b(xx[-1], nu=i), atol=1e-14)
+        for i in range(5):
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
         # tests for axis=-1
         b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic', axis=-1)
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
-        for i in range(k):
-            assert_allclose(b(xx[0], nu=i), b(xx[-1], nu=i), atol=1e-14)
+        for i in range(5):
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
 
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
