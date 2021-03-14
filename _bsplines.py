@@ -3,7 +3,8 @@ import operator
 import numpy as np
 from numpy.core.multiarray import normalize_axis_index
 from scipy.linalg import (get_lapack_funcs, LinAlgError,
-                          cholesky_banded, cho_solve_banded)
+                          cholesky_banded, cho_solve_banded,
+                          solve_banded)
 from . import _bspl
 from . import _fitpack_impl
 from . import _fitpack as _dierckx
@@ -663,17 +664,17 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     for j in range(bs): 
         V[-bs+j, j] = 1
     
-    Z = sl.solve_banded((bs, bs), A, U[:, 0])  # z0
+    Z = solve_banded((bs, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
     
     for i in range(1, k - 1):
-        zi = sl.solve_banded((bs, bs), A, U[:, i])
+        zi = solve_banded((bs, bs), A, U[:, i])
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
-    H = sl.inv(np.identity(k - 1) + V @ Z.T)
+    H = np.linalg.inv(np.identity(k - 1) + V @ Z.T)
 
-    y = sl.solve_banded((bs, bs), A, b)
+    y = solve_banded((bs, bs), A, b)
     c = y - Z.T @ (H @ (V @ y))
 
     return c
@@ -690,7 +691,7 @@ def _periodic_nodes(x,l=1,r=1):
     t[-r:] = [x[-1] + sum(dx[:i]) for i in range(1,r+1)]
     return t
 
-def _make_periodic_spline(x, y, t, k):
+def _make_periodic_spline(x, y, t, k, axis):
     '''
     Compute the (coefficients of) interpolating B-spline with periodic
     boundary conditions.
@@ -744,8 +745,8 @@ def _make_periodic_spline(x, y, t, k):
         ll[:,i] = np.roll(ll[:,i],i)
         ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
 
-    c = _woodbury_algorithm(A, ll, ur, y[:-1], k)
-    c = np.concatenate((c[-bs:], c, c[:bs + 1]))
+    c = _woodbury_algorithm(A, ur, ll, y[:-1], k)
+    c = np.concatenate((c[-offset:], c, c[:offset + 1]))
     return BSpline.construct_fast(t, c, k, axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
@@ -880,8 +881,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     axis = normalize_axis_index(axis, y.ndim)
 
     if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
-        raise ValueError('First and last points does not match while periodic case 
-                        expected')
+        raise ValueError('First and last points does not match while periodic case'
+                        ' expected')
 
     # special-case k=0 right away
     if k == 0:
@@ -949,7 +950,7 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         raise ValueError('Out of bounds w/ x = %s.' % x)
 
     if bc_type == 'periodic':
-        return _make_periodic_spline(x, y, t, k)
+        return _make_periodic_spline(x, y, t, k, axis)
 
     # Here : deriv_l, r = [(nu, value), ...]
     deriv_l = _convert_string_aliases(deriv_l, y.shape[1:])
