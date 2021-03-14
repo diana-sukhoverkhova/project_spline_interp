@@ -616,7 +616,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     ----------
     A : 2-D array, shape(k, n)
         Matrix of diagonals of original matrix(see 
-        'solve_banded' documentation).
+        ``solve_banded`` documentation).
     ll : 2-D array, shape(bs,bs)
         Lower left block matrix.
     ur : 2-D array, shape(bs,bs)
@@ -634,7 +634,16 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     SLE - system of linear equations.
     
     'n' should be greater than 'k', otherwise corner block
-    elements will intersect diagonals.
+    elements will intersect with diagonals.
+
+    Almost diagonal matrix with upper right and lower left
+    blocks is solved with the following steps: blocks are
+    represented as vectors and new systems of linear equations
+    are constructed. Left parts of systems are the same - the
+    diagonal elements of the original matrix which makes it
+    possible to use a solution for banded matrices 
+    (``solve_banded``). Then the solution for the original SLE
+    is finally computed.
     '''
     bs = int((k-1)/2)
     n = A.shape[1] + 1
@@ -662,11 +671,10 @@ def _woodbury_algorithm(A, ur, ll, b, k):
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
-    Z = Z.transpose()
-    H = sl.inv(np.identity(k - 1) + V @ Z)
+    H = sl.inv(np.identity(k - 1) + V @ Z.T)
 
     y = sl.solve_banded((bs, bs), A, b)
-    c = y - Z @ (H @ (V @ y))
+    c = y - Z.T @ (H @ (V @ y))
 
     return c
 
@@ -684,18 +692,38 @@ def _periodic_nodes(x,l=1,r=1):
 
 def _make_periodic_spline(x, y, t, k):
     '''
+    Compute the (coefficients of) interpolating B-spline with periodic
+    boundary conditions.
 
     Parameters
     ----------
-
+    x : array_like, shape (n,)
+        Abscissas.
+    y : array_like, shape (n,)
+        Ordinates.
+    k : int
+        B-spline degree.
+    t : array_like, shape (n + 2 * k,).
+        Nodes taken on a circle, ``k`` on the left and ``k`` on right of
+        the vector ``x``.
 
     Returns
     -------
     b : a BSpline object of the degree ``k`` and with knots ``t``.
+
+    Notes
+    -----
+    The original system is formed by ``n + k - 1`` equations where the first
+    ``k - 1`` of them stand for the ``k - 1`` derivatives continuity on the 
+    edges while the others equations correspond to a interpolating case (matching
+    all the input points). Due to a special form of such matrix created with B-splines
+    with nodes taken on a circle, we can reduce the number of equations to ``n - 1``
+    and even implement Woodbury formula to optimize the computations. For now this
+    works only for odd ``k``.
     '''
     if k % 2 == 0:
         raise NotImplementedError('Even k periodic case is not implemented yet.')
-
+    n = y.shape[0]
     # solving periodic case using Woodbury formula
     # set up RHS
     A = np.zeros((k, n - 1)) # matrix of diagonals suitable for 'solve_banded'
@@ -754,8 +782,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
           equivalent to ``bc_type=([(2, 0.0)], [(2, 0.0)])``.
         * ``"not-a-knot"`` (default): The first and second segments are the same
           polynomial. This is equivalent to having ``bc_type=None``.
-        * ``"periodic"``: The values and the first 'k-1' derivatives are equivalent
-          in first and last input points.
+        * ``"periodic"``: The values and the first ``k-1`` derivatives are
+          equivalent in first and last input points.
 
     axis : int, optional
         Interpolation axis. Default is 0.
@@ -851,6 +879,10 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     axis = normalize_axis_index(axis, y.ndim)
 
+    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
+        raise ValueError('First and last points does not match while periodic case 
+                        expected')
+
     # special-case k=0 right away
     if k == 0:
         if any(_ is not None for _ in (t, deriv_l, deriv_r)):
@@ -899,13 +931,6 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     y = np.rollaxis(y, axis)    # now internally interp axis is zero
 
-    if bc_type == 'periodic':
-        if not np.allclose(y[0],y[-1],atol=1e-15):
-            raise ValueError('First and last points does not match while periodic case\
-                        expected')
-        else:
-            return _make_periodic_spline(x, y, t, k)
-
     if x.ndim != 1 or np.any(x[1:] < x[:-1]):
         raise ValueError("Expect x to be a 1-D sorted array_like.")
     if np.any(x[1:] == x[:-1]):
@@ -922,6 +947,9 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                          (t.size, x.size + k + 1))
     if (x[0] < t[k]) or (x[-1] > t[-k]):
         raise ValueError('Out of bounds w/ x = %s.' % x)
+
+    if bc_type == 'periodic':
+        return _make_periodic_spline(x, y, t, k)
 
     # Here : deriv_l, r = [(nu, value), ...]
     deriv_l = _convert_string_aliases(deriv_l, y.shape[1:])
