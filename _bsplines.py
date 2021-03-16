@@ -783,8 +783,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
           equivalent to ``bc_type=([(2, 0.0)], [(2, 0.0)])``.
         * ``"not-a-knot"`` (default): The first and second segments are the same
           polynomial. This is equivalent to having ``bc_type=None``.
-        * ``"periodic"``: The values and the first ``k-1`` derivatives are
-          equivalent in first and last input points.
+        * ``"periodic"``: The values and the first ``k-1`` derivatives at the ends
+          are equivalent.
 
     axis : int, optional
         Interpolation axis. Default is 0.
