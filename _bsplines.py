@@ -4,7 +4,7 @@ import numpy as np
 from numpy.core.multiarray import normalize_axis_index
 from scipy.linalg import (get_lapack_funcs, LinAlgError,
                           cholesky_banded, cho_solve_banded,
-                          solve_banded)
+                          solve, solve_banded)
 from . import _bspl
 from . import _fitpack_impl
 from . import _fitpack as _dierckx
@@ -656,13 +656,13 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
     U[:bs, :bs] = ur
     for j in range(bs): 
-        V[j, -bs+j] = 1
+        V[j, -bs + j] = 1
 
     # lower left
 
     U[-bs:, -bs:] = ll
     for j in range(bs): 
-        V[-bs+j, j] = 1
+        V[-bs + j, j] = 1
     
     Z = solve_banded((bs, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
@@ -672,7 +672,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
-    H = np.linalg.inv(np.identity(k - 1) + V @ Z.T)
+    H = solve(np.identity(k - 1) + V @ Z.T, np.identity(k - 1))
 
     y = solve_banded((bs, bs), A, b)
     c = y - Z.T @ (H @ (V @ y))
@@ -715,12 +715,21 @@ def _make_periodic_spline(x, y, t, k, axis):
     Notes
     -----
     The original system is formed by ``n + k - 1`` equations where the first
-    ``k - 1`` of them stand for the ``k - 1`` derivatives continuity on the 
-    edges while the others equations correspond to a interpolating case (matching
-    all the input points). Due to a special form of such matrix created with B-splines
-    with nodes taken on a circle, we can reduce the number of equations to ``n - 1``
-    and even implement Woodbury formula to optimize the computations. For now this
-    works only for odd ``k``.
+    ``k - 1`` of them stand for the ``k - 1`` derivatives continuity on the
+    edges while the other equations correspond to an interpolating case
+    (matching all the input points). Due to a special form of knot vector, it
+    can be proved that in the original system the first and last ``k``
+    coefficients of a spline function are the same, respectively. It follows
+    from the fact that all ``k-1`` derivatives are equal term by term at ends
+    and that the matrix of the original system of linear equations is
+    non-degenerate. So, we can reduce the number of equations to ``n - 1`` (first
+    ``k-1`` equations could be reduced). Another trick of this implementation is
+    cyclic shift of values of B-splines due to equality of ``k`` unknown
+    coefficients. With this we can receive matrix of the system with upper right
+    and lower left ‘blocks’, and ``k`` diagonals.  It allows to use Woodbury
+    formula to optimize the computations.
+    For now, this function works only for odd ``k``.
+
     '''
     if k % 2 == 0:
         raise NotImplementedError('Even k periodic case is not implemented yet.')
@@ -737,20 +746,20 @@ def _make_periodic_spline(x, y, t, k, axis):
     for i in range(1,offset + 1):
         A[offset - i] = np.roll(A[offset - i],i)
         if k % 2 == 1 or i < offset:
-            A[offset + i] = np.roll(A[offset + i],-i)
-            ur[-i:,i-1] = np.copy(A[offset + i,-i:])
-        ll[-i,:i] = np.copy(A[offset - i,:i])
+            A[offset + i] = np.roll(A[offset + i], -i)
+            ur[-i:, i - 1] = np.copy(A[offset + i, -i:])
+        ll[-i, :i] = np.copy(A[offset - i, :i])
     ur = ur.T
     for i in range(1,offset):
-        ll[:,i] = np.roll(ll[:,i],i)
-        ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
+        ll[:, i] = np.roll(ll[:, i], i)
+        ur[:, -i-1] = np.roll(ur[:, -i - 1], -i)
 
     extradim = prod(y.shape[1:])
-    y_new = y.reshape(n,extradim)
-    c = np.zeros((n+k-1,extradim))
+    y_new = y.reshape(n, extradim)
+    c = np.zeros((n + k - 1,extradim))
     for i in range(extradim):
-        cc = _woodbury_algorithm(A,ur,ll,y_new[:,i][:-1],k)
-        c[:,i] = np.concatenate((cc[-offset:], cc, cc[:offset + 1]))
+        cc = _woodbury_algorithm(A, ur, ll, y_new[:, i][:-1], k)
+        c[:, i] = np.concatenate((cc[-offset:], cc, cc[:offset + 1]))
     c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
     return BSpline.construct_fast(t, c, k, axis=axis)
 

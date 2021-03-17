@@ -827,12 +827,12 @@ class TestInterp(object):
         # in periodic case it is expected equality of k-1 first
         # derivatives at the boundaries
         for i in range(5):
-            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-14)
         # tests for axis=-1
         b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic', axis=-1)
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         for i in range(5):
-            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-14)
 
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
@@ -1080,7 +1080,7 @@ class TestInterp(object):
         cf = make_interp_full_matr(x, y, t, k)
         assert_allclose(b.c, cf, atol=1e-14, rtol=1e-14)
 
-    def woodbury_test():
+    def test_woodbury(self):
         '''
         Random elements in diagonal matrix with blocks in the
         left lower and right upper corners checking the
