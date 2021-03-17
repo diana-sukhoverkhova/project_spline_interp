@@ -752,7 +752,7 @@ def _make_periodic_spline(x, y, t, k, axis):
         cc = _woodbury_algorithm(A,ur,ll,y_new[:,i][:-1],k)
         c[:,i] = np.concatenate((cc[-offset:], cc, cc[:offset + 1]))
     c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
-    return BSpline.constsruct_fast(t, c, k, axis=axis)
+    return BSpline.construct_fast(t, c, k, axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                        check_finite=True):
@@ -861,6 +861,22 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     >>> plt.plot(x_new, y_new, '-')
     >>> plt.show()
 
+    Build a B-spline curve with 2 dimensional y
+    
+    >>> x = np.linspace(0,2*np.pi,10)
+    >>> y = np.array([np.sin(x),np.cos(x)])
+
+    Periodic condition is satisfied because y coordinates of points on the ends
+    are equivalent
+
+    >>> ax = plt.axes(projection='3d')
+    >>> xx = np.linspace(0,2*np.pi,100)
+    >>> bspl = make_interp_spline(x,y,k=5,bc_type='periodic',axis=1)
+    >>> ax.plot3D(xx,*bspl(xx),label='Scipy curve')
+    >>> ax.scatter3D(x,*y,label='Points',color='red')
+    >>> plt.show()
+
+
     See Also
     --------
     BSpline : base class representing the B-spline objects
@@ -885,6 +901,12 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     axis = normalize_axis_index(axis, y.ndim)
 
+    x = _as_float_array(x, check_finite)
+    y = _as_float_array(y, check_finite)
+    k = operator.index(k)
+
+    y = np.rollaxis(y, axis)    # now internally interp axis is zero
+
     if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
         raise ValueError('First and last points does not match while periodic case'
                         ' expected')
@@ -894,10 +916,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
         if any(_ is not None for _ in (t, deriv_l, deriv_r)):
             raise ValueError("Too much info for k=0: t and bc_type can only "
                              "be None.")
-        x = _as_float_array(x, check_finite)
         t = np.r_[x, x[-1]]
         c = np.asarray(y)
-        c = np.rollaxis(c, axis)
         c = np.ascontiguousarray(c, dtype=_get_dtype(c.dtype))
         return BSpline.construct_fast(t, c, k, axis=axis)
 
@@ -905,16 +925,10 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     if k == 1 and t is None:
         if not (deriv_l is None and deriv_r is None):
             raise ValueError("Too much info for k=1: bc_type can only be None.")
-        x = _as_float_array(x, check_finite)
         t = np.r_[x[0], x, x[-1]]
         c = np.asarray(y)
-        c = np.rollaxis(c, axis)
         c = np.ascontiguousarray(c, dtype=_get_dtype(c.dtype))
         return BSpline.construct_fast(t, c, k, axis=axis)
-
-    x = _as_float_array(x, check_finite)
-    y = _as_float_array(y, check_finite)
-    k = operator.index(k)
 
     # come up with a sensible knot vector, if needed
     if t is None:
@@ -934,8 +948,6 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
             t = _augknt(x, k)
 
     t = _as_float_array(t, check_finite)
-
-    y = np.rollaxis(y, axis)    # now internally interp axis is zero
 
     if x.ndim != 1 or np.any(x[1:] < x[:-1]):
         raise ValueError("Expect x to be a 1-D sorted array_like.")
