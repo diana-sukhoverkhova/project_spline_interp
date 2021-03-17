@@ -10,7 +10,8 @@ from scipy.interpolate import (BSpline, BPoly, PPoly, make_interp_spline,
 import scipy.linalg as sl
 from scipy._lib import _pep440
 
-from scipy.interpolate._bsplines import _not_a_knot, _augknt
+from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
+                                        _woodbury_algorithm)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 

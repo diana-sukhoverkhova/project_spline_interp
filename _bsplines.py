@@ -745,9 +745,14 @@ def _make_periodic_spline(x, y, t, k, axis):
         ll[:,i] = np.roll(ll[:,i],i)
         ur[:,-i-1] = np.roll(ur[:,-i-1],-i)
 
-    c = _woodbury_algorithm(A, ur, ll, y[:-1], k)
-    c = np.concatenate((c[-offset:], c, c[:offset + 1]))
-    return BSpline.construct_fast(t, c, k, axis=axis)
+    extradim = prod(y.shape[1:])
+    y_new = y.reshape(n,extradim)
+    c = np.zeros((n+k-1,extradim))
+    for i in range(extradim):
+        cc = _woodbury_algorithm(A,ur,ll,y_new[:,i][:-1],k)
+        c[:,i] = np.concatenate((cc[-offset:], cc, cc[:offset + 1]))
+    c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
+    return BSpline.constsruct_fast(t, c, k, axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                        check_finite=True):
