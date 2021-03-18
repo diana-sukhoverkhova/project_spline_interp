@@ -846,8 +846,8 @@ class TestInterp(object):
         y[1] = np.cos(x)
         b = make_interp_spline(x, y, k=5, bc_type='periodic',axis=1)
         for i in range(n):
-            assert_allclose(b(x[i]),y[:,i],atol=1e-15)
-        assert_allclose(b(x[0]),b(x[-1]),atol=1e-15)
+            assert_allclose(b(x[i]),y[:,i],atol=1e-14)
+        assert_allclose(b(x[0]),b(x[-1]),atol=1e-14)
 
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
@@ -1101,10 +1101,9 @@ class TestInterp(object):
         left lower and right upper corners checking the
         implementation of Woodbury algorithm.
         '''
-
+        np.random.seed(1234)
+        n = 201
         for k in range(3, 32, 2):
-            np.random.seed(1234)
-            n = 201
             offset = int((k - 1) / 2)
             a = np.diagflat(np.random.random((1, n)))
             for i in range(1, offset + 1):
@@ -1121,7 +1120,7 @@ class TestInterp(object):
                 else:
                     d[i, j:] = np.diagonal(a, offset=j)
             b = np.random.random(n)
-            assert_allclose(_woodbury_algorithm(d, ur, ll, b, k), np.linalg.solve(a, b), atol=1e-15)
+            assert_allclose(_woodbury_algorithm(d, ur, ll, b, k), np.linalg.solve(a, b), atol=1e-14)
 
 
 def make_interp_full_matr(x, y, t, k):
