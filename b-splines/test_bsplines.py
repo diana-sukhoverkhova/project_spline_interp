@@ -10,7 +10,8 @@ from scipy.interpolate import (BSpline, BPoly, PPoly, make_interp_spline,
 import scipy.linalg as sl
 from scipy._lib import _pep440
 
-from scipy.interpolate._bsplines import _not_a_knot, _augknt
+from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
+                                        _woodbury_algorithm)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 
@@ -825,8 +826,28 @@ class TestInterp(object):
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         # in periodic case it is expected equality of k-1 first
         # derivatives at the boundaries
-        for i in range(k):
-            assert_allclose(b(xx[0], nu=i), b(xx[-1], nu=i), atol=1e-14)
+        for i in range(5):
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
+        # tests for axis=-1
+        b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic', axis=-1)
+        assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
+        for i in range(5):
+            assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
+        
+    def test_periodic_axis(self):
+        n = self.xx.shape[0]
+        np.random.seed(1234)
+        x = np.random.random_sample(n) * 2 * np.pi
+        x = np.sort(x)
+        x[0] = 0.
+        x[-1] = 2 * np.pi
+        y = np.zeros((2,n))
+        y[0] = np.sin(x)
+        y[1] = np.cos(x)
+        b = make_interp_spline(x, y, k=5, bc_type='periodic',axis=1)
+        for i in range(n):
+            assert_allclose(b(x[i]),y[:,i],atol=1e-15)
+        assert_allclose(b(x[0]),b(x[-1]),atol=1e-15)
 
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
@@ -1074,7 +1095,7 @@ class TestInterp(object):
         cf = make_interp_full_matr(x, y, t, k)
         assert_allclose(b.c, cf, atol=1e-14, rtol=1e-14)
 
-    def woodbury_test():
+    def test_woodbury(self):
         '''
         Random elements in diagonal matrix with blocks in the
         left lower and right upper corners checking the
