@@ -609,18 +609,18 @@ def _process_deriv_spec(deriv):
 
 def _woodbury_algorithm(A, ur, ll, b, k):
     '''
-    Implementation of Woodbury algorithm applied to banded
-    matrices with two blocks in upper right and lower left
-    corners.
+    Solve a cyclic banded linear system with upper right
+    and lower blocks of size ``(k-1) / 2`` using
+    the Woodbury formula
     
     Parameters
     ----------
     A : 2-D array, shape(k, n)
         Matrix of diagonals of original matrix(see 
         ``solve_banded`` documentation).
-    ur : 2-D array, shape(bs,bs)
+    ur : 2-D array, shape(bs, bs)
         Upper right block matrix.
-    ll : 2-D array, shape(bs,bs)
+    ll : 2-D array, shape(bs, bs)
         Lower left block matrix.
     b : 1-D array, shape(n,)
         Vector of constant terms of the SLE.
@@ -634,43 +634,55 @@ def _woodbury_algorithm(A, ur, ll, b, k):
         
     Notes
     -----
-    SLE - system of linear equations.
-    
-    'n' should be greater than 'k', otherwise corner block
+    1) SLE - system of linear equations.
+    2) For cyclic banded linear system the structure of matrix is
+    almost diagonal matrix with upper right and lower left blocks.
+    The system is solved with the following steps:
+       1. Original matrix without diagonals is represented as  product
+          of matrix U and V
+       2. New systems of linear equations are constructed:
+          A @ z_i = u_i, u_i - columnn vector of U,
+                         A - banded matrix without blocks
+                         i = 1, ..., k - 1
+       3. Matrix Z is formed from vectors z_i:
+          Z = [ z_1 | z_2 | ... | z_{k-1} ]
+       4. Matrix H = (1 + V.T @ Z)^{-1}
+       5. The system A @ y = b is solved
+       6. x = y - Z @ (H @ V.T @ y)
+    3) ``n`` should be greater than ``k``, otherwise corner block
     elements will intersect with diagonals.
 
-    Almost diagonal matrix with upper right and lower left
-    blocks is solved with the following steps: blocks are
-    represented as vectors and new systems of linear equations
-    are constructed. Left parts of systems are the same - the
-    diagonal elements of the original matrix which makes it
-    possible to use a solution for banded matrices 
-    (``solve_banded``). Then the solution for the original SLE
-    is finally computed.
+    Examples
+    --------
+    Consider the case of n = 8, k = 5 (size of blocks - 2 x 2).
+    The matrix of a system:       U:          V:
+      x  x  x  *  *  a  b         a b 0 0     0 0 1 0
+      x  x  x  x  *  *  c         0 c 0 0     0 0 0 1
+      x  x  x  x  x  *  *         0 0 0 0     0 0 0 0
+      *  x  x  x  x  x  *         0 0 0 0     0 0 0 0
+      *  *  x  x  x  x  x         0 0 0 0     0 0 0 0
+      d  *  *  x  x  x  x         0 0 d 0     1 0 0 0
+      e  f  *  *  x  x  x         0 0 e f     0 1 0 0
 
     References
     ----------
     .. [1] William H. Press, Saul A. Teukolsky, William T. Vetterling
-           and Brian P. Flannery, Numerical Recipes, 2007, 2.7.3
+           and Brian P. Flannery, Numerical Recipes, 2007, Section 2.7.3
 
     '''
-    bs = int((k-1)/2)
+    bs = int((k - 1)/2)
     n = A.shape[1] + 1
 
     U = np.zeros((n - 1, k - 1))
-    V = np.zeros((k - 1, n - 1))  # V transpose 
+    V = np.zeros((k - 1, n - 1))  # we store V transpose
 
-    # upper right
-
+    # upper right block
     U[:bs, :bs] = ur
-    for j in range(bs): 
-        V[j, -bs + j] = 1
+    V[np.arange(bs), np.arange(bs) - bs] = 1
 
-    # lower left
-
+    # lower left block
     U[-bs:, -bs:] = ll
-    for j in range(bs): 
-        V[-bs + j, j] = 1
+    V[np.arange(bs) - bs, np.arange(bs)] = 1
     
     Z = solve_banded((bs, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
@@ -687,19 +699,19 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
     return c
 
-def _periodic_nodes(x,l=1,r=1):
+def _periodic_knots(x, l=1, r=1):
     '''
-    returns vector of nodes on a circle
+    returns vector of knots on a circle
     ``max(r, l)`` assumed to be greater than ``len(x)``
     '''
     dx = np.diff(x)
     t = np.zeros(len(x) + l + r)
-    t[:l] = [x[0] - sum(dx[-i:]) for i in range(l,0,-1)]
+    t[:l] = [x[0] - sum(dx[-i:]) for i in range(l, 0, -1)]
     t[l:-r] = x
-    t[-r:] = [x[-1] + sum(dx[:i]) for i in range(1,r+1)]
+    t[-r:] = [x[-1] + sum(dx[:i]) for i in range(1, r + 1)]
     return t
 
-def _make_periodic_spline(x, y, t, k, axis):
+def _make_periodic_spline(x, y, t, k, axis=0):
     '''
     Compute the (coefficients of) interpolating B-spline with periodic
     boundary conditions.
@@ -745,31 +757,31 @@ def _make_periodic_spline(x, y, t, k, axis):
     n = y.shape[0]
 
     if n <= k:
-        raise ValueError("n should be greater than k to form system.")
+        raise ValueError("Need at least k + 1 data points to fit a spline of degree k.")
     
     # solving periodic case using Woodbury formula
     # set up RHS
     A = np.zeros((k, n - 1)) # matrix of diagonals suitable for 'solve_banded'
     for i in range(n-1):
-        A[:,i] = _bspl.evaluate_all_bspl(t, k, x[i], i + k)[:-1][::-1]
+        A[:, i] = _bspl.evaluate_all_bspl(t, k, x[i], i + k)[:-1][::-1]
     offset = int((k-1)/2)
     # upper right and lower left blocks of the original matrix
-    ur = np.zeros((offset,offset))
-    ll = np.zeros((offset,offset))
-    for i in range(1,offset + 1):
+    ur = np.zeros((offset, offset))
+    ll = np.zeros((offset, offset))
+    for i in range(1, offset + 1):
         A[offset - i] = np.roll(A[offset - i],i)
         if k % 2 == 1 or i < offset:
             A[offset + i] = np.roll(A[offset + i], -i)
             ur[-i:, i - 1] = np.copy(A[offset + i, -i:])
         ll[-i, :i] = np.copy(A[offset - i, :i])
     ur = ur.T
-    for i in range(1,offset):
+    for i in range(1, offset):
         ll[:, i] = np.roll(ll[:, i], i)
-        ur[:, -i-1] = np.roll(ur[:, -i - 1], -i)
+        ur[:, -i - 1] = np.roll(ur[:, -i - 1], -i)
 
     extradim = prod(y.shape[1:])
     y_new = y.reshape(n, extradim)
-    c = np.zeros((n + k - 1,extradim))
+    c = np.zeros((n + k - 1, extradim))
     for i in range(extradim):
         cc = _woodbury_algorithm(A, ur, ll, y_new[:, i][:-1], k)
         c[:, i] = np.concatenate((cc[-offset:], cc, cc[:offset + 1]))
@@ -885,17 +897,17 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     Build a B-spline curve with 2 dimensional y
     
-    >>> x = np.linspace(0,2*np.pi,10)
-    >>> y = np.array([np.sin(x),np.cos(x)])
+    >>> x = np.linspace(0, 2*np.pi, 10)
+    >>> y = np.array([np.sin(x), np.cos(x)])
 
     Periodic condition is satisfied because y coordinates of points on the ends
     are equivalent
 
     >>> ax = plt.axes(projection='3d')
-    >>> xx = np.linspace(0,2*np.pi,100)
-    >>> bspl = make_interp_spline(x,y,k=5,bc_type='periodic',axis=1)
-    >>> ax.plot3D(xx,*bspl(xx))
-    >>> ax.scatter3D(x,*y,color='red')
+    >>> xx = np.linspace(0, 2*np.pi, 100)
+    >>> bspl = make_interp_spline(x, y, k=5, bc_type='periodic', axis=1)
+    >>> ax.plot3D(xx, *bspl(xx))
+    >>> ax.scatter3D(x, *y, color='red')
     >>> plt.show()
 
     See Also
@@ -927,9 +939,9 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     y = np.rollaxis(y, axis)    # now internally interp axis is zero
 
-    if bc_type == 'periodic' and not np.allclose(y[0],y[-1],atol=1e-15):
+    if bc_type == 'periodic' and not np.allclose(y[0], y[-1], atol=1e-15):
         raise ValueError("First and last points does not match while periodic case"
-                        " expected")
+                         "expected")
 
     # special-case k=0 right away
     if k == 0:
