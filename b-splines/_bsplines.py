@@ -623,33 +623,31 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     ll : 2-D array, shape(bs, bs)
         Lower left block matrix.
     b : 1-D array, shape(n,)
-        Vector of constant terms of the SLE.
+        Vector of constant terms of the system of linear equations.
     k : int
         B-spline degree.
         
     Returns
     -------
     c : 1-D array, shape(n,)
-        Solution of the original SLE.
+        Solution of the original system of linear equations.
         
     Notes
     -----
-    1) SLE - system of linear equations.
-    2) For cyclic banded linear system the structure of matrix is
-    almost diagonal matrix with upper right and lower left blocks.
+    This algorithm works only for systems with banded matrix A plus
+    a correction term U @ V.T, where the matrix U @ V.T gives upper right
+    and lower left block of A
     The system is solved with the following steps:
-       1. Original matrix without diagonals is represented as  product
-          of matrix U and V
-       2. New systems of linear equations are constructed:
-          A @ z_i = u_i, u_i - columnn vector of U,
-                         A - banded matrix without blocks
-                         i = 1, ..., k - 1
-       3. Matrix Z is formed from vectors z_i:
-          Z = [ z_1 | z_2 | ... | z_{k-1} ]
-       4. Matrix H = (1 + V.T @ Z)^{-1}
-       5. The system A @ y = b is solved
-       6. x = y - Z @ (H @ V.T @ y)
-    3) ``n`` should be greater than ``k``, otherwise corner block
+        1.  New systems of linear equations are constructed:
+            A @ z_i = u_i,
+            u_i - columnn vector of U,
+            i = 1, ..., k - 1
+        2.  Matrix Z is formed from vectors z_i:
+            Z = [ z_1 | z_2 | ... | z_{k - 1} ]
+        3.  Matrix H = (1 + V.T @ Z)^{-1}
+        4.  The system A' @ y = b is solved
+        5.  x = y - Z @ (H @ V.T @ y)
+    Also, ``n`` should be greater than ``k``, otherwise corner block
     elements will intersect with diagonals.
 
     Examples
