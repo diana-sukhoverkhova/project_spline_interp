@@ -751,11 +751,15 @@ def _make_periodic_spline(x, y, t, k, axis):
     kul = int(k / 2)
     
     # kl = ku = k
+    # originally shape of ab is ()
     ab = np.zeros((3 * k + 1, nt),dtype=np.float_,order='F')
 
+    # upper right and lower left blocks
     ur = np.zeros((kul,kul))
     ll = np.zeros_like(ur)
     
+    # `offset` is made to shift all the non-zero elements to the end of the
+    # matrix
     _bspl._colloc(x, t, k, ab, offset=k)
     
     # remove zeros before the matrix
@@ -767,7 +771,6 @@ def _make_periodic_spline(x, y, t, k, axis):
     for i in range(kul):
         ur += np.diag(ab[-i - 1, i:kul], k=i)
         ll += np.diag(ab[i, -kul - (k % 2):n - 1 + 2 * kul - i], k=-i)
-        # ll += np.diag(ab[i,-kul-(k % 2):][:kul-i],k=-i) alternative
 
     # remove elements that occure in the last point
     # (first and last points are equivalent)
