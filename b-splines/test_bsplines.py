@@ -878,6 +878,33 @@ class TestInterp(object):
         t = np.zeros(n + 2 * k)
         assert_raises(ValueError, make_interp_spline, x, y, k, t, 'periodic')
 
+    @pytest.mark.parametrize('k', [2, 3, 4, 5])
+    def test_periodic_splev(self):
+        # comparision values of periodic b-spline with splev
+        b = make_interp_spline(self.xx, self.yy, k=k, bc_type='periodic')
+        tck = splrep(self.xx, self.yy, per=True, k=k)
+        spl = splev(self.xx, tck)
+        assert_allclose(spl, b(self.xx), atol=1e-14)
+
+        # comparison derivatives of periodic b-spline with splev
+        for i in range(1, k+1):
+            spl = splev(x, tck, der=i)
+            assert_allclose(spl, b.derivative(i)(self.xx), atol=1e-14)
+
+    def test_periodic_cubic(self):
+        # comparison values of cubic periodic b-spline with CubicSpline
+        b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
+        cub = CubicSpline(x, y, bc_type='periodic')
+        assert_allclose(b(self.xx), cub(self.xx), atol=1e-14)
+
+    def test_periodic_full_matrix(self):
+        # comparison values of cubic periodic b-spline with
+        # solution of the system with full matrix
+        b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
+        c = make_interp_periodic_full_matr(self.xx, self.yy, t, k)
+        b1 = np.vectorize(lambda x: _naive_eval(x, t, c, k))
+        assert_allclose(b(self.xx), b1(self.xx), atol=1e-14)
+
     def test_quadratic_deriv(self):
         der = [(1, 8.)]  # order, value: f'(x) = 8.
 
@@ -1178,6 +1205,27 @@ def make_interp_full_matr(x, y, t, k):
 
     c = sl.solve(A, y)
     return c
+
+
+# two helpers for test_periodic_full_matrix
+
+def find_left(ar,val):
+    assert min(ar) <= val
+    return len(ar[ar <= val]) - 1
+
+
+def make_interp_periodic_full_matr(x, y, t, k):
+    n = len(x)
+    matr = np.zeros((n+k,n+k))
+    for i in range(n):
+        matr[i + k - 1,i:i+k+1] = _bspl.evaluate_all_bspl(t, k, x[i], find_left(t,x[i]))
+    for i in range(k-1):
+        matr[i,:k + 1] = _bspl.evaluate_all_bspl(t, k, x[0], find_left(t,x[0]), nu=i+1)
+        matr[i, -k-1:] = -_bspl.evaluate_all_bspl(t, k, x[-1], find_left(t,x[-1]), nu=i+1)
+    matr = matr[:-1,:-1]
+    b = np.zeros_like(matr[:,0])
+    b[k-1:] = y
+    return solve(matr, b)
 
 
 def make_lsq_full_matrix(x, y, t, k=3):
