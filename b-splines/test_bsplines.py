@@ -6,12 +6,12 @@ import pytest
 
 from scipy.interpolate import (BSpline, BPoly, PPoly, make_interp_spline,
         make_lsq_spline, _bspl, splev, splrep, splprep, splder, splantider,
-         sproot, splint, insert)
+         sproot, splint, insert, CubicSpline)
 import scipy.linalg as sl
 from scipy._lib import _pep440
 
 from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
-                                        _woodbury_algorithm)
+                                        _woodbury_algorithm, _periodic_nodes)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 
@@ -833,7 +833,7 @@ class TestInterp(object):
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         for i in range(5):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
-        
+
     def test_periodic_axis(self):
         n = self.xx.shape[0]
         np.random.seed(1234)
@@ -857,7 +857,7 @@ class TestInterp(object):
             x = np.sort(np.random.random_sample(n))
             y = np.random.random_sample(n)
             y[0] = y[-1]
-            assert_raises(ValueError, make_interp_spline, x, y, k, None, 
+            assert_raises(ValueError, make_interp_spline, x, y, k, None,
             'periodic')
 
         # first and last points should match when periodic case expected
@@ -879,7 +879,7 @@ class TestInterp(object):
         assert_raises(ValueError, make_interp_spline, x, y, k, t, 'periodic')
 
     @pytest.mark.parametrize('k', [2, 3, 4, 5])
-    def test_periodic_splev(self):
+    def test_periodic_splev(self, k):
         # comparision values of periodic b-spline with splev
         b = make_interp_spline(self.xx, self.yy, k=k, bc_type='periodic')
         tck = splrep(self.xx, self.yy, per=True, k=k)
@@ -887,21 +887,23 @@ class TestInterp(object):
         assert_allclose(spl, b(self.xx), atol=1e-14)
 
         # comparison derivatives of periodic b-spline with splev
-        for i in range(1, k+1):
-            spl = splev(x, tck, der=i)
-            assert_allclose(spl, b.derivative(i)(self.xx), atol=1e-14)
+        for i in range(1, k + 1):
+            spl = splev(self.xx, tck, der=i)
+            assert_allclose(spl, b.derivative(i)(self.xx), atol=1e-10)
 
     def test_periodic_cubic(self):
         # comparison values of cubic periodic b-spline with CubicSpline
         b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
-        cub = CubicSpline(x, y, bc_type='periodic')
+        cub = CubicSpline(self.xx, self.yy, bc_type='periodic')
         assert_allclose(b(self.xx), cub(self.xx), atol=1e-14)
 
     def test_periodic_full_matrix(self):
         # comparison values of cubic periodic b-spline with
         # solution of the system with full matrix
         b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
-        c = make_interp_periodic_full_matr(self.xx, self.yy, t, k)
+        k = 3
+        t = _periodic_nodes(self.xx, k)
+        c = make_interp_per_full_matr(self.xx, self.yy, t, k)
         b1 = np.vectorize(lambda x: _naive_eval(x, t, c, k))
         assert_allclose(b(self.xx), b1(self.xx), atol=1e-14)
 
@@ -1207,25 +1209,45 @@ def make_interp_full_matr(x, y, t, k):
     return c
 
 
-# two helpers for test_periodic_full_matrix
+# a helper for test_periodic_full_matrix
+def make_interp_per_full_matr(x, y, t, k):
+    x, y, t = map(np.asarray, (x, y, t))
 
-def find_left(ar,val):
-    assert min(ar) <= val
-    return len(ar[ar <= val]) - 1
+    n = x.size
+    nt = t.size - k - 1
 
+    # have n conditions for nt coefficients; need nt-n derivatives
+    assert nt - n == k - 1
 
-def make_interp_periodic_full_matr(x, y, t, k):
-    n = len(x)
-    matr = np.zeros((n+k,n+k))
-    for i in range(n):
-        matr[i + k - 1,i:i+k+1] = _bspl.evaluate_all_bspl(t, k, x[i], find_left(t,x[i]))
+    # LHS: the collocation matrix + derivatives at edges
+    A = np.zeros((nt, nt), dtype=np.float_)
+
+    # derivatives at x[0]:
+
     for i in range(k-1):
-        matr[i,:k + 1] = _bspl.evaluate_all_bspl(t, k, x[0], find_left(t,x[0]), nu=i+1)
-        matr[i, -k-1:] = -_bspl.evaluate_all_bspl(t, k, x[-1], find_left(t,x[-1]), nu=i+1)
-    matr = matr[:-1,:-1]
-    b = np.zeros_like(matr[:,0])
-    b[k-1:] = y
-    return solve(matr, b)
+        bb = _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i+1)
+        A[i,:k+1] = bb
+        bb = _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i+1)[:-1]
+        A[i, -k:] = -bb
+
+    # RHS
+    y = np.r_[[0]*(k-1), y]
+
+    # collocation matrix
+    for j in range(n):
+        xval = x[j]
+        # find interval
+        if xval == t[k]:
+            left = k
+        else:
+            left = np.searchsorted(t, xval) - 1
+
+        # fill a row
+        bb = _bspl.evaluate_all_bspl(t, k, xval, left)
+        A[j + k - 1, left-k:left+1] = bb
+
+    c = sl.solve(A, y)
+    return c
 
 
 def make_lsq_full_matrix(x, y, t, k=3):
