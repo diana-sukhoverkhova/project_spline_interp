@@ -668,12 +668,12 @@ def _woodbury_algorithm(A, ur, ll, b, k):
            and Brian P. Flannery, Numerical Recipes, 2007, Section 2.7.3
 
     '''
-    k_odd = (k+1) % 2
-    bs = int((k-1)/2) + k_odd
+    k_mod = k - k % 2
+    bs = int((k - 1) / 2) + (k + 1) % 2
 
     n = A.shape[1] + 1
-    U = np.zeros((n-1, k-k%2))
-    V = np.zeros((k-k%2, n-1)) # V transpose 
+    U = np.zeros((n - 1, k_mod))
+    V = np.zeros((k_mod, n - 1))  # V transpose 
 
     # upper right block 
     U[:bs, :bs] = ur
@@ -683,19 +683,18 @@ def _woodbury_algorithm(A, ur, ll, b, k):
     U[-bs:, -bs:] = ll
     V[np.arange(bs) - bs, np.arange(bs)] = 1
     
-    Z = solve_banded((bs, bs), A, U[:, 0]) # z0
+    Z = solve_banded((bs, bs), A, U[:, 0])  # z0
     Z = np.expand_dims(Z, axis=0)
     
-    for i in range(1, k-k%2):
+    for i in range(1, k_mod):
         zi = solve_banded((bs, bs), A, U[:, i])
         zi = np.expand_dims(zi, axis=0)
         Z = np.concatenate((Z, zi), axis=0)
 
-    Z = Z.transpose()
-    H = np.linalg.inv(np.identity(k - k%2) + V @ Z)
+    H = solve(np.identity(k_mod) + V @ Z.T, np.identity(k_mod))
 
     y = solve_banded((bs, bs), A, b)
-    c = y - Z @ (H @ (V @ y))
+    c = y - Z.T @ (H @ (V @ y))
 
     return c
 
@@ -706,15 +705,15 @@ def _periodic_knots(x, k):
     xc = np.copy(x)
     if k % 2 == 0:
         dx = np.diff(xc)
-        xc[1:-1] -= dx[:-1]/2 
+        xc[1: -1] -= dx[:-1] / 2 
     dx = np.diff(xc)
     t = np.zeros(len(xc) + 2 * k)
-    t[:k] = [xc[0] - sum(dx[-i:]) for i in range(k,0,-1)]
-    t[k:-k] = xc
-    t[-k:] = [xc[-1] + sum(dx[:i]) for i in range(1,k+1)]
+    t[:k] = [xc[0] - sum(dx[-i:]) for i in range(k, 0, -1)]
+    t[k: -k] = xc
+    t[-k:] = [xc[-1] + sum(dx[:i]) for i in range(1, k + 1)]
     return t
 
-def _make_periodic_spline(x, y, t, k, axis=0):
+def _make_periodic_spline(x, y, t, k, axis):
     '''
     Compute the (coefficients of) interpolating B-spline with periodic
     boundary conditions.
@@ -745,20 +744,21 @@ def _make_periodic_spline(x, y, t, k, axis=0):
     coefficients of a spline function are the same, respectively. It follows
     from the fact that all ``k-1`` derivatives are equal term by term at ends
     and that the matrix of the original system of linear equations is
-    non-degenerate. So, we can reduce the number of equations to ``n - 1`` (first
-    ``k-1`` equations could be reduced). Another trick of this implementation is
-    cyclic shift of values of B-splines due to equality of ``k`` unknown
-    coefficients. With this we can receive matrix of the system with upper right
-    and lower left ‘blocks’, and ``k`` diagonals.  It allows to use Woodbury
-    formula to optimize the computations.
+    non-degenerate. So, we can reduce the number of equations to ``n - 1``
+    (first ``k-1`` equations could be reduced). Another trick of this 
+    implementation is cyclic shift of values of B-splines due to equality of
+    ``k`` unknown coefficients. With this we can receive matrix of the system
+    with upper right and lower left blocks, and ``k`` diagonals.  It allows
+    to use Woodbury formula to optimize the computations.
 
     For now, this function works only for odd ``k``.
 
-    ''' 
+    '''
     n = y.shape[0]
 
     if n <= k:
-        raise ValueError("Need at least k + 1 data points to fit a spline of degree k.")
+        raise ValueError("Need at least k + 1 data points to fit a spline "
+                         "of degree k.")
     
     nt = len(t) - k - 1
 
@@ -766,11 +766,10 @@ def _make_periodic_spline(x, y, t, k, axis=0):
     kul = int(k / 2)
     
     # kl = ku = k
-    # originally shape of ab is ()
-    ab = np.zeros((3 * k + 1, nt),dtype=np.float_,order='F')
+    ab = np.zeros((3 * k + 1, nt), dtype=np.float_, order='F')
 
     # upper right and lower left blocks
-    ur = np.zeros((kul,kul))
+    ur = np.zeros((kul, kul))
     ll = np.zeros_like(ur)
     
     # `offset` is made to shift all the non-zero elements to the end of the
@@ -778,25 +777,25 @@ def _make_periodic_spline(x, y, t, k, axis=0):
     _bspl._colloc(x, t, k, ab, offset=k)
     
     # remove zeros before the matrix
-    ab = ab[-k - (k + 1) % 2:,:]
+    ab = ab[-k - (k + 1) % 2:, :]
     
     # The least elements in rows (except repetitions) are diagonals
     # of block matricies. Upper right matrix is an upper triangular
     # matrix while lower left is a lower triangular one.
     for i in range(kul):
-        ur += np.diag(ab[-i - 1, i:kul], k=i)
-        ll += np.diag(ab[i, -kul - (k % 2):n - 1 + 2 * kul - i], k=-i)
+        ur += np.diag(ab[-i - 1, i: kul], k=i)
+        ll += np.diag(ab[i, -kul - (k % 2): n - 1 + 2 * kul - i], k=-i)
 
     # remove elements that occure in the last point
     # (first and last points are equivalent)
-    A = ab[:,kul:-k+kul]
+    A = ab[:, kul: -k + kul]
 
     extradim = prod(y.shape[1:])
     y_new = y.reshape(n, extradim)
     c = np.zeros((n + k - 1, extradim))
     for i in range(extradim):
         cc = _woodbury_algorithm(A, ur, ll, y_new[:, i][:-1], k)
-        c[:, i] = np.concatenate((cc[-kul:], cc, cc[:kul + k%2]))
+        c[:, i] = np.concatenate((cc[-kul:], cc, cc[:kul + k % 2]))
     c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
     return BSpline.construct_fast(t, c, k, axis=axis)
 
@@ -832,10 +831,10 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
            equivalent to ``bc_type=([(1, 0.0)], [(1, 0.0)])``.
         * ``"natural"``: The second derivatives at ends are zero. This is
           equivalent to ``bc_type=([(2, 0.0)], [(2, 0.0)])``.
-        * ``"not-a-knot"`` (default): The first and second segments are the same
-          polynomial. This is equivalent to having ``bc_type=None``.
-        * ``"periodic"``: The values and the first ``k-1`` derivatives at the ends
-          are equivalent (for odd ``k`` only).
+        * ``"not-a-knot"`` (default): The first and second segments are the
+          same polynomial. This is equivalent to having ``bc_type=None``.
+        * ``"periodic"``: The values and the first ``k-1`` derivatives at the
+          ends are equivalent.
 
     axis : int, optional
         Interpolation axis. Default is 0.
@@ -952,8 +951,8 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
     y = np.rollaxis(y, axis)    # now internally interp axis is zero
 
     if bc_type == 'periodic' and not np.allclose(y[0], y[-1], atol=1e-15):
-        raise ValueError("First and last points does not match while periodic case"
-                         "expected")
+        raise ValueError("First and last points does not match while "
+                         "periodic case expected")
 
     # special-case k=0 right away
     if k == 0:
@@ -976,15 +975,15 @@ def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
 
     k = operator.index(k)
 
-    if bc_type == 'periodic' and not t is None:
-        raise ValueError("For periodic case t is constructed automatically and "
-                        "can not be passed manually")
+    if bc_type == 'periodic' and t is not None:
+        raise ValueError("For periodic case t is constructed automatically "
+                         "and can not be passed manually")
 
     # come up with a sensible knot vector, if needed
     if t is None:
         if deriv_l is None and deriv_r is None:
             if bc_type == 'periodic':
-                t = _periodic_nodes(x, k)
+                t = _periodic_knots(x, k)
             elif k == 2:
                 # OK, it's a bit ad hoc: Greville sites + omit
                 # 2nd and 2nd-to-last points, a la not-a-knot

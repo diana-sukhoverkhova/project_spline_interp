@@ -11,7 +11,7 @@ import scipy.linalg as sl
 from scipy._lib import _pep440
 
 from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
-                                        _woodbury_algorithm, _periodic_nodes)
+                                        _woodbury_algorithm, _periodic_knots)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 
@@ -820,18 +820,18 @@ class TestInterp(object):
             b = make_interp_spline(self.xx, self.yy, k)
             assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
 
-    def test_periodic(self):
-        # k = 5 here for more derivatives
-        b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic')
+    @pytest.mark.parametrize('k', [2, 3, 4, 5])
+    def test_periodic(self, k):
+        b = make_interp_spline(self.xx, self.yy, k=k, bc_type='periodic')
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         # in periodic case it is expected equality of k-1 first
         # derivatives at the boundaries
-        for i in range(5):
+        for i in range(k):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
         # tests for axis=-1
-        b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic', axis=-1)
+        b = make_interp_spline(self.xx, self.yy, k=k, bc_type='periodic', axis=-1)
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
-        for i in range(5):
+        for i in range(k):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
 
     def test_periodic_axis(self):
@@ -841,13 +841,13 @@ class TestInterp(object):
         x = np.sort(x)
         x[0] = 0.
         x[-1] = 2 * np.pi
-        y = np.zeros((2,n))
+        y = np.zeros((2, n))
         y[0] = np.sin(x)
         y[1] = np.cos(x)
-        b = make_interp_spline(x, y, k=5, bc_type='periodic',axis=1)
+        b = make_interp_spline(x, y, k=5, bc_type='periodic', axis=1)
         for i in range(n):
-            assert_allclose(b(x[i]),y[:,i],atol=1e-14)
-        assert_allclose(b(x[0]),b(x[-1]),atol=1e-14)
+            assert_allclose(b(x[i]), y[:, i], atol=1e-14)
+        assert_allclose(b(x[0]), b(x[-1]), atol=1e-14)
 
     def test_periodic_points_exception(self):
         # not enough points for interpolation
@@ -864,7 +864,7 @@ class TestInterp(object):
         n = 8
         x = np.sort(np.random.random_sample(n))
         y = np.random.random_sample(n)
-        y[0] = y[-1] - 1 # to be sure that they are not equal
+        y[0] = y[-1] - 1  # to be sure that they are not equal
         assert_raises(ValueError, make_interp_spline, x, y, k, None, 
         'periodic')
 
@@ -902,7 +902,7 @@ class TestInterp(object):
         # solution of the system with full matrix
         b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
         k = 3
-        t = _periodic_nodes(self.xx, k)
+        t = _periodic_knots(self.xx, k)
         c = make_interp_per_full_matr(self.xx, self.yy, t, k)
         b1 = np.vectorize(lambda x: _naive_eval(x, t, c, k))
         assert_allclose(b(self.xx), b1(self.xx), atol=1e-14)
@@ -1178,7 +1178,8 @@ class TestInterp(object):
                 else:
                     d[i, j:] = np.diagonal(a, offset=j)
             b = np.random.random(n)
-            assert_allclose(_woodbury_algorithm(d, ur, ll, b, k), np.linalg.solve(a, b), atol=1e-14)
+            assert_allclose(_woodbury_algorithm(d, ur, ll, b, k),
+                            np.linalg.solve(a, b), atol=1e-14)
 
 
 def make_interp_full_matr(x, y, t, k):
@@ -1209,14 +1210,14 @@ def make_interp_full_matr(x, y, t, k):
     return c
 
 
-# a helper for test_periodic_full_matrix
+### XXX: 'periodic' interp spline using full matrices
 def make_interp_per_full_matr(x, y, t, k):
     x, y, t = map(np.asarray, (x, y, t))
 
     n = x.size
     nt = t.size - k - 1
 
-    # have n conditions for nt coefficients; need nt-n derivatives
+    # have `n` conditions for `nt` coefficients; need nt-n derivatives
     assert nt - n == k - 1
 
     # LHS: the collocation matrix + derivatives at edges
@@ -1226,7 +1227,7 @@ def make_interp_per_full_matr(x, y, t, k):
 
     for i in range(k-1):
         bb = _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i+1)
-        A[i,:k+1] = bb
+        A[i, :k+1] = bb
         bb = _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i+1)[:-1]
         A[i, -k:] = -bb
 
