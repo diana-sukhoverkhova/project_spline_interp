@@ -11,7 +11,7 @@ import scipy.linalg as sl
 from scipy._lib import _pep440
 
 from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
-                                        _woodbury_algorithm, _periodic_nodes)
+                                        _woodbury_algorithm, _periodic_knots)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 
@@ -834,6 +834,17 @@ class TestInterp(object):
         for i in range(5):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
 
+    @pytest.mark.parametrize('k', [2, 3, 4, 5, 6, 7])
+    def test_periodic_random(self, k):
+        n = 7
+        np.random.seed(1234)
+        x = np.random.random_sample(n) * 10
+        x = np.sort(x)
+        y = np.random.random_sample(n) * 100
+        y[0] = y[-1]
+        b = make_interp_spline(x, y, k=k, bc_type='periodic')
+        assert_allclose(b(x), y, atol=1e-14, rtol=1e-14)
+
     def test_periodic_axis(self):
         n = self.xx.shape[0]
         np.random.seed(1234)
@@ -857,16 +868,16 @@ class TestInterp(object):
             x = np.sort(np.random.random_sample(n))
             y = np.random.random_sample(n)
             y[0] = y[-1]
-            assert_raises(ValueError, make_interp_spline, x, y, k, None,
-            'periodic')
+            with assert_raises(ValueError):
+                make_interp_spline(x, y, k=k, bc_type='periodic')
 
         # first and last points should match when periodic case expected
         n = 8
         x = np.sort(np.random.random_sample(n))
         y = np.random.random_sample(n)
         y[0] = y[-1] - 1 # to be sure that they are not equal
-        assert_raises(ValueError, make_interp_spline, x, y, k, None, 
-        'periodic')
+        with assert_raises(ValueError):
+            make_interp_spline(x, y, k=k, bc_type='periodic')
 
     def test_periodic_knots_exception(self):
         # `periodic` case does not work with passed vector of knots

@@ -673,22 +673,22 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
     n = A.shape[1] + 1
     U = np.zeros((n - 1, k_mod))
-    V = np.zeros((k_mod, n - 1))  # V transpose 
+    VT = np.zeros((k_mod, n - 1))  # V transpose
 
     # upper right block 
     U[:bs, :bs] = ur
-    V[np.arange(bs), np.arange(bs) - bs] = 1
+    VT[np.arange(bs), np.arange(bs) - bs] = 1
 
     # lower left block 
     U[-bs:, -bs:] = ll
-    V[np.arange(bs) - bs, np.arange(bs)] = 1
+    VT[np.arange(bs) - bs, np.arange(bs)] = 1
     
     Z = solve_banded((bs, bs), A, U)
 
-    H = solve(np.identity(k_mod) + V @ Z, np.identity(k_mod))
+    H = solve(np.identity(k_mod) + VT @ Z, np.identity(k_mod))
 
     y = solve_banded((bs, bs), A, b)
-    c = y - Z @ (H @ (V @ y))
+    c = y - Z @ (H @ (VT @ y))
 
     return c
 
@@ -749,7 +749,7 @@ def _make_periodic_spline(x, y, t, k, axis):
     n = y.shape[0]
 
     if n <= k:
-        raise ValueError("Need at least k + 1 data points to fit a spline "
+        raise ValueError("Need at least k data points to fit a spline "
                          "of degree k.")
     
     nt = len(t) - k - 1
@@ -772,13 +772,13 @@ def _make_periodic_spline(x, y, t, k, axis):
     ab = ab[-k - (k + 1) % 2:, :]
     
     # The least elements in rows (except repetitions) are diagonals
-    # of block matricies. Upper right matrix is an upper triangular
+    # of block matrices. Upper right matrix is an upper triangular
     # matrix while lower left is a lower triangular one.
     for i in range(kul):
         ur += np.diag(ab[-i - 1, i: kul], k=i)
         ll += np.diag(ab[i, -kul - (k % 2): n - 1 + 2 * kul - i], k=-i)
 
-    # remove elements that occure in the last point
+    # remove elements that occur in the last point
     # (first and last points are equivalent)
     A = ab[:, kul: -k + kul]
 
@@ -789,7 +789,7 @@ def _make_periodic_spline(x, y, t, k, axis):
         cc = _woodbury_algorithm(A, ur, ll, y_new[:, i][:-1], k)
         c[:, i] = np.concatenate((cc[-kul:], cc, cc[:kul + k % 2]))
     c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
-    return BSpline.construct_fast(t, c, k, axis=axis)
+    return BSpline.construct_fast(t, c, k, extrapolate='periodic', axis=axis)
 
 def make_interp_spline(x, y, k=3, t=None, bc_type=None, axis=0,
                        check_finite=True):
