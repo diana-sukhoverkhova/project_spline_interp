@@ -887,7 +887,8 @@ class TestInterp(object):
         x = np.sort(np.random.random_sample(n))
         y = np.random.random_sample(n)
         t = np.zeros(n + 2 * k)
-        assert_raises(ValueError, make_interp_spline, x, y, k, t, 'periodic')
+        with assert_raises(ValueError):
+            make_interp_spline(x, y, k, t, 'periodic')
 
     @pytest.mark.parametrize('k', [2, 3, 4, 5])
     def test_periodic_splev(self, k):
