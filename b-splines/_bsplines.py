@@ -694,7 +694,7 @@ def _woodbury_algorithm(A, ur, ll, b, k):
 
 def _periodic_knots(x, k):
     '''
-    returns vector of nodes on circle
+    returns vector of knots on circle
     '''
     xc = np.copy(x)
     if k % 2 == 0:
@@ -706,6 +706,71 @@ def _periodic_knots(x, k):
     t[k: -k] = xc
     t[-k:] = [xc[-1] + sum(dx[:i]) for i in range(1, k + 1)]
     return t
+
+
+def _make_interp_per_full_matr(x, y, t, k):
+    '''
+    Returns a solution of a system for interpolation with
+    periodic boundary conditions. First ``k - 1`` rows of
+    matrix are condtions of periodicity (continuity of
+    ``k - 1`` derivatives at the boundary points). Last
+    ``n`` rows are interpolation conditions.
+    RHS is ``k - 1`` zeros and ``n`` ordinates in this case.
+
+    Parameters
+    ----------
+    x : 1-D array, shape (n,)
+        Values of x - coordinate of a given set of points.
+    y : 1-D array, shape (n,)
+        Values of y - coordinate of a given set of points.
+    t : 1-D array, shape(n+2*k,)
+        Vector of knots.
+    k : int
+        The maximum degree of spline
+
+    Returns
+    -------
+    c : 1-D array, shape (n+k-1,)
+        B-spline coefficients
+    '''
+
+    x, y, t = map(np.asarray, (x, y, t))
+
+    n = x.size
+    nt = t.size - k - 1
+
+    # have n conditions for nt coefficients; need nt-n derivatives
+    assert nt - n == k - 1
+
+    # LHS: the collocation matrix + derivatives at edges
+    A = np.zeros((nt, nt), dtype=np.float_)
+
+    # derivatives at x[0] and x[-1]:
+
+    for i in range(k - 1):
+        bb = _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i + 1)
+        A[i, :k + 1] = bb
+        bb = _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i + 1)[:-1]
+        A[i, -k:] = -bb
+
+    # RHS
+    y = np.r_[[0] * (k - 1), y]
+
+    # collocation matrix
+    for j in range(n):
+        xval = x[j]
+        # find interval
+        left = j + k
+
+        # fill a row
+        bb = _bspl.evaluate_all_bspl(t, k, xval, left)
+        if (j == n - 1):
+            A[j + offset, left - k:] = bb[:-1]
+        else:
+            A[j + offset, left - k:left + 1] = bb
+
+    c = sl.solve(A, y)
+    return c
 
 def _make_periodic_spline(x, y, t, k, axis):
     '''

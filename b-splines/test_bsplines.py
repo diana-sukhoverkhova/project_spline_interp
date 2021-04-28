@@ -11,7 +11,8 @@ import scipy.linalg as sl
 from scipy._lib import _pep440
 
 from scipy.interpolate._bsplines import (_not_a_knot, _augknt,
-                                        _woodbury_algorithm, _periodic_knots)
+                                        _woodbury_algorithm, _periodic_knots,
+                                         _make_interp_per_full_matr)
 import scipy.interpolate._fitpack_impl as _impl
 from scipy.interpolate._fitpack import _splint
 
@@ -912,10 +913,10 @@ class TestInterp(object):
     def test_periodic_full_matrix(self):
         # comparison values of cubic periodic b-spline with
         # solution of the system with full matrix
-        b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
+        b = _make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
         k = 3
         t = _periodic_nodes(self.xx, k)
-        c = make_interp_per_full_matr(self.xx, self.yy, t, k)
+        c = _make_interp_per_full_matr(self.xx, self.yy, t, k)
         b1 = np.vectorize(lambda x: _naive_eval(x, t, c, k))
         assert_allclose(b(self.xx), b1(self.xx), atol=1e-14)
 
@@ -1216,47 +1217,6 @@ def make_interp_full_matr(x, y, t, k):
         # fill a row
         bb = _bspl.evaluate_all_bspl(t, k, xval, left)
         A[j, left-k:left+1] = bb
-
-    c = sl.solve(A, y)
-    return c
-
-
-# a helper for test_periodic_full_matrix
-def make_interp_per_full_matr(x, y, t, k):
-    x, y, t = map(np.asarray, (x, y, t))
-
-    n = x.size
-    nt = t.size - k - 1
-
-    # have n conditions for nt coefficients; need nt-n derivatives
-    assert nt - n == k - 1
-
-    # LHS: the collocation matrix + derivatives at edges
-    A = np.zeros((nt, nt), dtype=np.float_)
-
-    # derivatives at x[0]:
-
-    for i in range(k-1):
-        bb = _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i+1)
-        A[i,:k+1] = bb
-        bb = _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i+1)[:-1]
-        A[i, -k:] = -bb
-
-    # RHS
-    y = np.r_[[0]*(k-1), y]
-
-    # collocation matrix
-    for j in range(n):
-        xval = x[j]
-        # find interval
-        if xval == t[k]:
-            left = k
-        else:
-            left = np.searchsorted(t, xval) - 1
-
-        # fill a row
-        bb = _bspl.evaluate_all_bspl(t, k, xval, left)
-        A[j + k - 1, left-k:left+1] = bb
 
     c = sl.solve(A, y)
     return c
