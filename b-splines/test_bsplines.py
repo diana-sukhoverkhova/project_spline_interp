@@ -839,12 +839,11 @@ class TestInterp(object):
     def test_periodic_random(self, k):
         n = 7
         np.random.seed(1234)
-        x = np.random.random_sample(n) * 10
-        x = np.sort(x)
+        x = np.sort(np.random.random_sample(n) * 10)
         y = np.random.random_sample(n) * 100
         y[0] = y[-1]
         b = make_interp_spline(x, y, k=k, bc_type='periodic')
-        assert_allclose(b(x), y, atol=1e-14, rtol=1e-14)
+        assert_allclose(b(x), y, atol=1e-14)
 
     def test_periodic_axis(self):
         n = self.xx.shape[0]
@@ -862,17 +861,9 @@ class TestInterp(object):
         assert_allclose(b(x[0]),b(x[-1]),atol=1e-14)
 
     def test_periodic_points_exception(self):
-        # not enough points for interpolation
-        np.random.seed(1234)
-        k = 5
-        for n in range(1, k + 1):
-            x = np.sort(np.random.random_sample(n))
-            y = np.random.random_sample(n)
-            y[0] = y[-1]
-            with assert_raises(ValueError):
-                make_interp_spline(x, y, k=k, bc_type='periodic')
-
         # first and last points should match when periodic case expected
+        np.random.seed(1234)
+        k = 3
         n = 8
         x = np.sort(np.random.random_sample(n))
         y = np.random.random_sample(n)
@@ -900,9 +891,9 @@ class TestInterp(object):
         assert_allclose(spl, b(self.xx), atol=1e-14)
 
         # comparison derivatives of periodic b-spline with splev
-        for i in range(1, k + 1):
+        for i in range(1, k - 1):
             spl = splev(self.xx, tck, der=i)
-            assert_allclose(spl, b.derivative(i)(self.xx), atol=1e-10)
+            assert_allclose(spl, b(self.xx, nu=i), atol=1e-10)
 
     def test_periodic_cubic(self):
         # comparison values of cubic periodic b-spline with CubicSpline
@@ -913,9 +904,9 @@ class TestInterp(object):
     def test_periodic_full_matrix(self):
         # comparison values of cubic periodic b-spline with
         # solution of the system with full matrix
-        b = _make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
         k = 3
-        t = _periodic_nodes(self.xx, k)
+        b = make_interp_spline(self.xx, self.yy, k=3, bc_type='periodic')
+        t = _periodic_knots(self.xx, k)
         c = _make_interp_per_full_matr(self.xx, self.yy, t, k)
         b1 = np.vectorize(lambda x: _naive_eval(x, t, c, k))
         assert_allclose(b(self.xx), b1(self.xx), atol=1e-14)

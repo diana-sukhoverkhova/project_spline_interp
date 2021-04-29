@@ -732,44 +732,29 @@ def _make_interp_per_full_matr(x, y, t, k):
     -------
     c : 1-D array, shape (n+k-1,)
         B-spline coefficients
+
     '''
 
     x, y, t = map(np.asarray, (x, y, t))
 
     n = x.size
-    nt = t.size - k - 1
-
-    # have n conditions for nt coefficients; need nt-n derivatives
-    assert nt - n == k - 1
-
-    # LHS: the collocation matrix + derivatives at edges
-    A = np.zeros((nt, nt), dtype=np.float_)
-
-    # derivatives at x[0] and x[-1]:
+    
+    matr = np.zeros((n + k - 1, n + k - 1))
+    b = np.r_[[0] * (k - 1), y]
 
     for i in range(k - 1):
-        bb = _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i + 1)
-        A[i, :k + 1] = bb
-        bb = _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i + 1)[:-1]
-        A[i, -k:] = -bb
+        matr[i, :k+1] += _bspl.evaluate_all_bspl(t, k, x[0], k, nu=i + 1)
+        matr[i, -k:] -= _bspl.evaluate_all_bspl(t, k, x[-1], n + k - 1, nu=i + 1)[:-1]
 
-    # RHS
-    y = np.r_[[0] * (k - 1), y]
-
-    # collocation matrix
-    for j in range(n):
-        xval = x[j]
-        # find interval
-        left = j + k
-
-        # fill a row
-        bb = _bspl.evaluate_all_bspl(t, k, xval, left)
-        if (j == n - 1):
-            A[j + offset, left - k:] = bb[:-1]
+    for i in range(n):
+        left = i + k
+        xval = x[i]
+        if (i == n - 1):
+            matr[i + k - 1, -k:] += _bspl.evaluate_all_bspl(t, k, xval, left)[:-1]
         else:
-            A[j + offset, left - k:left + 1] = bb
+            matr[i + k - 1, left - k: left + 1] += _bspl.evaluate_all_bspl(t, k, xval, left)
 
-    c = sl.solve(A, y)
+    c = solve(matr, b)
     return c
 
 def _make_periodic_spline(x, y, t, k, axis):
@@ -813,10 +798,17 @@ def _make_periodic_spline(x, y, t, k, axis):
     '''
     n = y.shape[0]
 
+    extradim = prod(y.shape[1:])
+    y_new = y.reshape(n, extradim)
+    c = np.zeros((n + k - 1, extradim))
+
+    # n <= k case is solved with full matrix
     if n <= k:
-        raise ValueError("Need at least k data points to fit a spline "
-                         "of degree k.")
-    
+        for i in range(extradim):
+            c[:, i] = _make_interp_per_full_matr(x, y_new[:, i], t, k)
+        c = np.ascontiguousarray(c.reshape((n + k - 1,) + y.shape[1:]))
+        return BSpline.construct_fast(t, c, k, extrapolate='periodic', axis=axis)
+
     nt = len(t) - k - 1
 
     # size of block elements
@@ -847,9 +839,6 @@ def _make_periodic_spline(x, y, t, k, axis):
     # (first and last points are equivalent)
     A = ab[:, kul: -k + kul]
 
-    extradim = prod(y.shape[1:])
-    y_new = y.reshape(n, extradim)
-    c = np.zeros((n + k - 1, extradim))
     for i in range(extradim):
         cc = _woodbury_algorithm(A, ur, ll, y_new[:, i][:-1], k)
         c[:, i] = np.concatenate((cc[-kul:], cc, cc[:kul + k % 2]))
