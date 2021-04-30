@@ -771,7 +771,7 @@ def _make_periodic_spline(x, y, t, k, axis):
     k : int
         B-spline degree.
     t : array_like, shape (n + 2 * k,).
-        Nodes taken on a circle, ``k`` on the left and ``k`` on the right
+        Knots taken on a circle, ``k`` on the left and ``k`` on the right
         of the vector ``x``.
 
     Returns
@@ -786,10 +786,10 @@ def _make_periodic_spline(x, y, t, k, axis):
     (matching all the input points). Due to a special form of knot vector, it
     can be proved that in the original system the first and last ``k``
     coefficients of a spline function are the same, respectively. It follows
-    from the fact that all ``k-1`` derivatives are equal term by term at ends
+    from the fact that all ``k - 1`` derivatives are equal term by term at ends
     and that the matrix of the original system of linear equations is
     non-degenerate. So, we can reduce the number of equations to ``n - 1``
-    (first ``k-1`` equations could be reduced). Another trick of this 
+    (first ``k - 1`` equations could be reduced). Another trick of this
     implementation is cyclic shift of values of B-splines due to equality of
     ``k`` unknown coefficients. With this we can receive matrix of the system
     with upper right and lower left blocks, and ``k`` diagonals.  It allows

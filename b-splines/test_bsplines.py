@@ -827,12 +827,12 @@ class TestInterp(object):
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
         # in periodic case it is expected equality of k-1 first
         # derivatives at the boundaries
-        for i in range(5):
+        for i in range(1, 5):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
         # tests for axis=-1
         b = make_interp_spline(self.xx, self.yy, k=5, bc_type='periodic', axis=-1)
         assert_allclose(b(self.xx), self.yy, atol=1e-14, rtol=1e-14)
-        for i in range(5):
+        for i in range(1, 5):
             assert_allclose(b(self.xx[0], nu=i), b(self.xx[-1], nu=i), atol=1e-11)
 
     @pytest.mark.parametrize('k', [2, 3, 4, 5, 6, 7])
@@ -852,13 +852,13 @@ class TestInterp(object):
         x = np.sort(x)
         x[0] = 0.
         x[-1] = 2 * np.pi
-        y = np.zeros((2,n))
+        y = np.zeros((2, n))
         y[0] = np.sin(x)
         y[1] = np.cos(x)
-        b = make_interp_spline(x, y, k=5, bc_type='periodic',axis=1)
+        b = make_interp_spline(x, y, k=5, bc_type='periodic', axis=1)
         for i in range(n):
-            assert_allclose(b(x[i]),y[:,i],atol=1e-14)
-        assert_allclose(b(x[0]),b(x[-1]),atol=1e-14)
+            assert_allclose(b(x[i]), y[:, i], atol=1e-14)
+        assert_allclose(b(x[0]), b(x[-1]), atol=1e-14)
 
     def test_periodic_points_exception(self):
         # first and last points should match when periodic case expected
@@ -867,7 +867,7 @@ class TestInterp(object):
         n = 8
         x = np.sort(np.random.random_sample(n))
         y = np.random.random_sample(n)
-        y[0] = y[-1] - 1 # to be sure that they are not equal
+        y[0] = y[-1] - 1  # to be sure that they are not equal
         with assert_raises(ValueError):
             make_interp_spline(x, y, k=k, bc_type='periodic')
 
